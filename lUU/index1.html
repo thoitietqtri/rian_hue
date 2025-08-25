@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>KTSLTD Minimal — Xem mực nước theo trạm</title>
+  <style>
+    :root { --bg:#f7f7fb; --card:#fff; --txt:#111827; --muted:#6b7280; --pri:#2563eb; --ok:#16a34a; --err:#dc2626; }
+    *{box-sizing:border-box} body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;background:var(--bg);color:var(--txt)}
+    header{position:sticky;top:0;background:var(--card);border-bottom:1px solid #e5e7eb;padding:12px 16px;z-index:5}
+    h1{margin:0;font-size:18px}
+    .wrap{display:grid;grid-template-columns:320px 1fr;gap:16px;padding:16px}
+    .card{background:var(--card);border:1px solid #e5e7eb;border-radius:12px;padding:14px}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+    label{font-size:12px;color:var(--muted);display:block;margin:4px 0}
+    input,select,button{width:100%;padding:8px 10px;border:1px solid #d1d5db;border-radius:8px;font-size:14px}
+    button{background:var(--pri);color:#fff;border:none;cursor:pointer}
+    button.secondary{background:#6b7280}
+    button:disabled{opacity:.6;cursor:not-allowed}
+    .hint{font-size:12px;color:var(--muted)}
+    .status{font-size:12px;margin-top:6px}
+    .status.ok{color:var(--ok)} .status.err{color:var(--err)}
+    .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+    .chip{font-size:11px;background:#e2e8f0;color:#334155;border-radius:999px;padding:3px 8px}
+    .urlbox{font-family:ui-monospace,Consolas,monospace;font-size:12px;background:#f3f4f6;border:1px dashed #e5e7eb;border-radius:8px;padding:8px;overflow:auto}
+    table{width:100%;border-collapse:collapse;font-size:13px}
+    th,td{padding:8px;border-bottom:1px solid #eee;text-align:left;vertical-align:top}
+    thead th{position:sticky;top:0;background:#fafafa;z-index:1}
+    .grid{display:grid;grid-template-rows:auto 1fr;height:calc(100vh - 120px);gap:12px}
+    .scroll{overflow:auto;border:1px solid #e5e7eb;border-radius:8px;background:#fff}
+    footer{padding:10px 16px;font-size:12px;color:#6b7280}
+    @media (max-width:900px){ .wrap{grid-template-columns:1fr} }
+  </style>
+  <!-- đọc Excel & vẽ đồ thị -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+<header><h1>KTSLTD Minimal — Xem mực nước theo trạm (không tải về, không tổng hợp)</h1></header>
+
+<div class="wrap">
+  <!-- TRÁI: ĐIỀU KHIỂN -->
+  <section class="card">
+    <div class="row">
+      <button id="btnAutoXlsx">Tải tự động</button>
+      <input type="file" id="fileXlsx" accept=".xlsx" />
+    </div>
+    <div id="xlsxStatus" class="status">Chưa tải file Excel.</div>
+    <div class="hint">
+      Đặt <b>index.html</b> cùng thư mục với <b>thamso_khaithac.xlsx</b> rồi bấm “Tải tự động”; hoặc chọn file thủ công.
+      <br><b>Không đổi tên cột</b> trong Excel: <code>matram, tentram, matinh, Tab, sophut, tinhtong</code>.
+    </div>
+
+    <div style="margin-top:10px">
+      <label>Passcode (nếu API yêu cầu)</label>
+      <input id="passcode" type="text" placeholder="để trống nếu không cần">
+    </div>
+
+    <hr>
+
+    <label>Chọn trạm</label>
+    <select id="stationSelect"></select>
+    <div id="stationChips" class="chips"></div>
+
+    <div class="row" style="margin-top:8px">
+      <div><label>Bắt đầu</label><input type="datetime-local" id="startDt"></div>
+      <div><label>Kết thúc</label><input type="datetime-local" id="endDt"></div>
+    </div>
+
+    <div class="row" style="margin-top:8px">
+      <div><label>Chu kỳ (sophut)</label><input type="number" id="sophut" min="1" step="1" value="60"></div>
+      <div><label>ten_table</label>
+        <input list="tbls" id="tenTable" value="mucnuoc_oday">
+        <datalist id="tbls">
+          <option value="mucnuoc_oday"></option>
+          <option value="mucnuoc"></option>
+        </datalist>
+      </div>
+    </div>
+
+    <div style="margin-top:8px">
+      <label><input type="checkbox" id="tinhtong"> Tính tổng theo ngày (tinhtong=1)</label>
+    </div>
+
+    <div class="row" style="margin-top:10px">
+      <button id="btnFetch">Lấy dữ liệu</button>
+      <button class="secondary" id="btnClear">Xoá kết quả</button>
+    </div>
+
+    <div style="margin-top:10px">
+      <label>Request URL</label>
+      <div class="urlbox" id="urlBox">(chưa gửi)</div>
+      <button id="btnOpenUrl" class="secondary" style="margin-top:6px">Mở URL trong tab mới</button>
+    </div>
+
+    <div class="status" id="fetchStatus"></div>
+    <div class="hint">Nếu thấy <b>NetworkError</b> khi mở bằng <code>file:///</code>, app sẽ tự dùng CORS fallback (AllOrigins). Chạy qua Vite/Netlify sẽ ổn định hơn.</div>
+  </section>
+
+  <!-- PHẢI: KẾT QUẢ -->
+  <section class="grid">
+    <div class="card">
+      <div class="row">
+        <div>
+          <div style="font-weight:600">Kết quả</div>
+          <div class="hint">Hiển thị dữ liệu trả về từ API</div>
+        </div>
+        <div style="text-align:right"><label style="display:inline">
+          <input type="checkbox" id="toggleChart"> Hiện đồ thị
+        </label></div>
+      </div>
+    </div>
+
+    <div class="scroll">
+      <table>
+        <thead><tr id="thead"></tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+      <div id="chartWrap" style="display:none;padding:12px">
+        <canvas id="chart" height="120"></canvas>
+      </div>
+    </div>
+  </section>
+</div>
+
+<footer>
+  API gốc: <code>http://203.209.181.170:2018/API_TTB/JSON/solieu.php</code>.
+</footer>
+
+<script>
+/* ================= CẤU HÌNH ================= */
+const RAW_API_BASE = "http://203.209.181.170:2018";
+// nếu chạy qua Vite proxy: đặt API_BASE = "/api"; còn lại dùng RAW_API_BASE
+const API_BASE = (location.hostname === "localhost" || location.hostname === "127.0.0.1") ? "/api" : RAW_API_BASE;
+const DEFAULT_XLSX_PATH = "./thamso_khaithac.xlsx";
+const EXCEL_SHEET = "KhaibaoQuangtri";
+
+/* ================ TIỆN ÍCH ================ */
+const $ = sel => document.querySelector(sel);
+const pad = n => String(n).padStart(2, "0");
+const toLocalDatetimeValue = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+const quote = s => `'${s}'`;
+const buildUrl = params => `${API_BASE}/API_TTB/JSON/solieu.php?` + new URLSearchParams(params).toString();
+
+async function fetchJSON(url){
+  async function doFetch(u){
+    const res = await fetch(u, { credentials: "include" });
+    const raw = await res.text();
+    if (!res.ok) throw new Error(`HTTP ${res.status}: ${raw.slice(0,200)}`);
+    try { return JSON.parse(raw); }
+    catch(e){
+      if (raw.trim().startsWith("<")) throw new Error("Server trả HTML: " + raw.slice(0,160));
+      throw new Error("Server không trả JSON hợp lệ. Đoạn đầu: " + raw.slice(0,200));
+    }
+  }
+  try { return await doFetch(url); }
+  catch(err){
+    const s = String(err.message||err);
+    const needProxy = location.protocol === "file:" || /NetworkError|Failed to fetch|CORS/i.test(s);
+    if (needProxy){
+      const proxy = "https://api.allorigins.win/raw?url=" + encodeURIComponent(url);
+      return await doFetch(proxy);
+    }
+    throw err;
+  }
+}
+
+/* ================ ĐỌC EXCEL ================ */
+let stations = []; // {matram,tentram,matinh,Tab,sophut,tinhtong}
+
+function normalizeRow(r){
+  const pick = (a,b) => (a!==undefined && a!=="") ? a : b;
+  return {
+    matram: String(pick(r.matram, r.MATRAM) ?? "").trim(),
+    tentram: String(pick(r.tentram, r.TENTRAM) ?? "").trim(),
+    matinh: pick(r.matinh, r.MATINH) ?? "",
+    Tab: String(pick(r.Tab, r.tab) ?? "").trim(),
+    sophut: Number(pick(r.sophut, r.SOPHUT) ?? 60) || 60,
+    tinhtong: Number(pick(r.tinhtong, r.TINHTONG) ?? 0) || 0,
+  };
+}
+
+function loadFromWorkbook(wb){
+  const ws = wb.Sheets[EXCEL_SHEET] || wb.Sheets[wb.SheetNames[0]];
+  const arr = XLSX.utils.sheet_to_json(ws, { defval: "" });
+  stations = arr.map(normalizeRow).filter(r => r.matram);
+  if (!stations.length) throw new Error("Không đọc được danh sách trạm từ Excel.");
+  $("#xlsxStatus").className = "status ok";
+  $("#xlsxStatus").textContent = `Đã nạp ${stations.length} trạm.`;
+  fillStationSelect();
+}
+
+async function tryAutoLoadExcel(){
+  $("#xlsxStatus").textContent = "Đang tải thamso_khaithac.xlsx…";
+  const res = await fetch(DEFAULT_XLSX_PATH);
+  if (!res.ok) throw new Error("Không tìm thấy file ./thamso_khaithac.xlsx — hãy chọn file thủ công.");
+  const ab = await res.arrayBuffer();
+  const wb = XLSX.read(ab, { type: "array" });
+  loadFromWorkbook(wb);
+}
+
+/* ================ UI ================ */
+function fillStationSelect(){
+  const sel = $("#stationSelect");
+  sel.innerHTML = "";
+  stations.forEach((r,i)=>{
+    const o = document.createElement("option");
+    o.value = i;
+    o.textContent = `${r.tentram || "(không tên)"} — ${r.matram}`;
+    sel.appendChild(o);
+  });
+  sel.selectedIndex = 0;
+  renderStationChips();
+}
+
+function renderStationChips(){
+  const i = Number($("#stationSelect").value || 0);
+  const r = stations[i];
+  const box = $("#stationChips"); box.innerHTML = "";
+  if (!r) return;
+  [["matram", r.matram],["tentram", r.tentram],["Tab", r.Tab||"(trống)"],["sophut", r.sophut],["tinhtong", r.tinhtong]]
+    .forEach(([k,v])=>{
+      const span = document.createElement("span");
+      span.className = "chip"; span.textContent = `${k}: ${v}`; box.appendChild(span);
+    });
+
+  // LUÔN dùng tham số theo Excel (giống app desktop)
+  $("#sophut").value = r.sophut || 60;
+  $("#tenTable").value = (r.Tab || "mucnuoc_oday").trim();
+  $("#tinhtong").checked = !!Number(r.tinhtong || 0);
+}
+
+function renderTable(rows){
+  const thead = $("#thead"), tbody = $("#tbody");
+  thead.innerHTML = ""; tbody.innerHTML = "";
+  if (!Array.isArray(rows) || !rows.length){ thead.innerHTML = "<th>(trống)</th>"; return; }
+  const cols = Object.keys(rows[0]);
+  thead.innerHTML = cols.map(c=>`<th>${c}</th>`).join("");
+  const frag = document.createDocumentFragment();
+  for (const r of rows){
+    const tr = document.createElement("tr");
+    tr.innerHTML = cols.map(c=>`<td>${r[c] ?? ""}</td>`).join("");
+    frag.appendChild(tr);
+  }
+  tbody.appendChild(frag);
+}
+
+let chart;
+function renderChart(rows){
+  const wrap = $("#chartWrap");
+  if (!$("#toggleChart").checked){ wrap.style.display = "none"; return; }
+  const xs=[], ys=[];
+  for (const r of rows){
+    const t = r.thoigian ?? r.ThoiGian ?? r.time ?? r.datetime;
+    const v = Number(r.solieu ?? r.SoLieu ?? r.value);
+    if (t!=null && !Number.isNaN(v)){ xs.push(t); ys.push(v); }
+  }
+  if (!xs.length){ wrap.style.display = "none"; return; }
+  wrap.style.display = "block";
+  const ctx = $("#chart").getContext("2d");
+  if (chart) chart.destroy();
+  chart = new Chart(ctx, {
+    type: "line",
+    data: { labels: xs, datasets: [{ label: "Mực nước", data: ys }] },
+    options: { responsive:true, maintainAspectRatio:false, scales:{x:{ticks:{maxRotation:0,autoSkip:true}}} }
+  });
+}
+
+/* ================ LUỒNG CHÍNH ================ */
+async function init(){
+  // mặc định: 36 giờ gần nhất
+  const now = new Date(), start = new Date(now.getTime() - 36*3600*1000);
+  $("#startDt").value = toLocalDatetimeValue(start);
+  $("#endDt").value = toLocalDatetimeValue(now);
+
+  $("#stationSelect").addEventListener("change", renderStationChips);
+
+  $("#btnAutoXlsx").addEventListener("click", async ()=>{
+    try { await tryAutoLoadExcel(); }
+    catch(e){ $("#xlsxStatus").className="status err"; $("#xlsxStatus").textContent=e.message; }
+  });
+
+  $("#fileXlsx").addEventListener("change", async ev=>{
+    const f = ev.target.files?.[0]; if (!f) return;
+    try{
+      const ab = await f.arrayBuffer();
+      const wb = XLSX.read(ab, { type:"array" });
+      loadFromWorkbook(wb);
+    }catch(e){ $("#xlsxStatus").className="status err"; $("#xlsxStatus").textContent=e.message; }
+  });
+
+  $("#btnOpenUrl").addEventListener("click", ()=>{
+    const u = $("#urlBox").textContent.trim();
+    if (u.startsWith("http")) window.open(u, "_blank");
+  });
+
+  $("#btnFetch").addEventListener("click", async ()=>{
+    if (!stations.length){ alert("Chưa nạp danh sách trạm từ Excel."); return; }
+    const i = Number($("#stationSelect").value || 0);
+    const r = stations[i];
+
+    const ten_table = ($("#tenTable").value || r.Tab || "mucnuoc_oday").trim();
+    let   sophut = Number($("#sophut").value || r.sophut || 60) || 60;
+    let   tinhtong = $("#tinhtong").checked ? 1 : 0;
+
+    let s = new Date($("#startDt").value), e = new Date($("#endDt").value);
+    if (!(s.getTime() < e.getTime())){ alert("Khoảng thời gian không hợp lệ."); return; }
+
+    // Nếu bật tổng ngày → tự khóa 00:00 và 23:59 để API trả về đúng
+    if (tinhtong === 1){
+      s.setHours(0,0,0,0);
+      e.setHours(23,59,0,0);
+      $("#startDt").value = toLocalDatetimeValue(s);
+      $("#endDt").value   = toLocalDatetimeValue(e);
+    }
+
+    const sStr = `${s.getFullYear()}-${pad(s.getMonth()+1)}-${pad(s.getDate())} ${pad(s.getHours())}:${pad(s.getMinutes())}:00`;
+    const eStr = `${e.getFullYear()}-${pad(e.getMonth()+1)}-${pad(e.getDate())} ${pad(e.getHours())}:${pad(e.getMinutes())}:00`;
+
+    const params = {
+      matram: r.matram,
+      ten_table,
+      sophut: String(sophut),
+      tinhtong: String(tinhtong),
+      thoigianbd: quote(sStr),
+      thoigiankt: quote(eStr)
+    };
+
+    const pass = $("#passcode").value.trim();
+    if (pass) params.passcode = pass;
+
+    const url = buildUrl(params);
+    $("#urlBox").textContent = url;
+    $("#fetchStatus").className = "status";
+    $("#fetchStatus").textContent = "Đang lấy dữ liệu…";
+
+    try{
+      const data = await fetchJSON(url);
+      renderTable(Array.isArray(data) ? data : []);
+      renderChart(Array.isArray(data) ? data : []);
+      $("#fetchStatus").className = "status ok";
+      $("#fetchStatus").textContent = `Nhận ${Array.isArray(data)?data.length:0} dòng.`;
+    }catch(err){
+      renderTable([]); $("#chartWrap").style.display="none";
+      $("#fetchStatus").className = "status err";
+      $("#fetchStatus").textContent = String(err.message || err);
+    }
+  });
+
+  $("#btnClear").addEventListener("click", ()=>{
+    $("#thead").innerHTML = ""; $("#tbody").innerHTML = "";
+    $("#chartWrap").style.display = "none";
+    $("#urlBox").textContent = "(chưa gửi)";
+    $("#fetchStatus").textContent = "";
+  });
+
+  $("#toggleChart").addEventListener("change", ()=>{
+    const cols = [...document.querySelectorAll("#thead th")].map(th=>th.textContent);
+    const rows = [...document.querySelectorAll("#tbody tr")].map(tr=>{
+      const obj={}; tr.querySelectorAll("td").forEach((td,i)=> obj[cols[i]] = td.textContent); return obj;
+    });
+    renderChart(rows);
+  });
+}
+window.addEventListener("DOMContentLoaded", init);
+</script>
+</body>
+</html>

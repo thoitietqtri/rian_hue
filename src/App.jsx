@@ -23,25 +23,51 @@ function toSqlDT(localDT) {
 }
 
 /** Chuẩn hoá dữ liệu trả về từ API thành {time, value} */
+// Thay thế HÀM normalizeApiRows bằng bản dưới:
 function normalizeApiRows(rows) {
   if (!Array.isArray(rows)) return [];
+
+  // Chuẩn hoá key: bỏ dấu, thường hoá, bỏ khoảng trắng/ký tự lạ
+  const normKey = (s) =>
+    String(s ?? "")
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]/g, "");
+
   return rows
     .map((r) => {
       const keys = Object.keys(r);
-      const kTime =
-        keys.find((k) => /thoig|time|datetime/i.test(k)) || keys[0];
-      const kVal =
-        keys.find((k) => k !== kTime && typeof r[k] !== "undefined") ||
-        keys[1] ||
-        kTime;
+      const entries = keys.map((k) => [k, normKey(k)]);
+
+      // Ưu tiên các key chứa chuỗi sau
+      const timeEntry =
+        entries.find(([, n]) => n.includes("thoigian")) || // "thoigian", "thoigian_sl"
+        entries.find(([, n]) => n.includes("thogian")) ||  // "thogian_sl" (thiếu i)
+        entries.find(([, n]) => n.includes("datetime")) ||
+        entries.find(([, n]) => n.includes("time")) ||
+        [keys[0], ""]; // fallback
+
+      const valEntry =
+        entries.find(([, n]) => n.includes("solieu")) ||
+        entries.find(([, n]) => n.includes("mucnuoc")) ||
+        entries.find(([, n]) => n.includes("giatri")) ||
+        entries.find(([, n]) => n.includes("value")) ||
+        [keys.find((k) => k !== timeEntry[0]) || keys[1] || timeEntry[0], ""];
+
+      const kTime = timeEntry[0];
+      const kVal = valEntry[0];
+
       const time = r[kTime];
-      const val = Number(
-        typeof r[kVal] === "string" ? r[kVal].replace(",", ".") : r[kVal]
-      );
-      return { time, value: isFinite(val) ? val : null };
+      let valRaw = r[kVal];
+      if (typeof valRaw === "string") valRaw = valRaw.replace(",", ".");
+      const value = Number(valRaw);
+
+      return { time, value: Number.isFinite(value) ? value : null };
     })
     .filter((x) => x.time);
 }
+
 
 /** Gộp nhiều series (mỗi series: [{time, value}]) thành bảng */
 function buildTable(seriesByStation) {

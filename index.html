@@ -16,13 +16,13 @@
     body{
       margin:0; background:var(--bg); color:var(--txt);
       font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
-      display:grid; place-items:center; min-height:100vh;   /* căn giữa + phủ full */
+      display:grid; place-items:center; min-height:100vh;
     }
 
     /* ===== HEADER ===== */
     header{
       width:100%; max-width:1600px;
-      position:sticky; top:0; z-index:4;                    /* thấp hơn lịch */
+      position:sticky; top:0; z-index:4;
       background:linear-gradient(180deg,#fff, #fff 70%, rgba(255,255,255,.6));
       border-bottom:1px solid var(--grid); padding:18px 16px;
     }
@@ -65,7 +65,7 @@
     /* ===== TOOLBAR ===== */
     .toolbar{
       display:flex; align-items:center; justify-content:space-between; gap:10px;
-      position:sticky; top:calc(64px + 16px); z-index:3;       /* thấp hơn lịch (31) */
+      position:sticky; top:calc(64px + 16px); z-index:3;
     }
     .summary{font-size:13px; color:#1f2937}
     .toolbar-actions{display:flex; gap:8px}
@@ -85,14 +85,14 @@
     thead th:first-child{left:0; z-index:4}
     tbody td:first-child{position:sticky; left:0; background:#fff; z-index:3; text-align:left}
 
-    /* ===== DATETIME: không bị đè, hiển thị trọn vẹn ===== */
+    /* ===== DATETIME ===== */
     .dt{display:grid; grid-template-columns:1fr 1fr; gap:10px; align-items:end; position:relative; z-index:30;}
     .dt input[type="datetime-local"]{
       height:44px; background:#f8fafc; border:1.5px solid var(--grid-strong); font-weight:600; letter-spacing:.2px;
-      padding-right:36px; position:relative; z-index:31;  /* cao hơn toolbar/card */
+      padding-right:36px; position:relative; z-index:31;
     }
 
-    /* ===== ALERT TABLE (STATIC) – chữ đỏ + viền đỏ ===== */
+    /* ===== ALERT TABLE (STATIC) ===== */
     .alert-box{border:2px solid #ef4444; border-radius:12px; padding:10px}
     .alert-scroll{max-height:270px; overflow:auto; border:1px solid #fecaca; border-radius:10px; background:#fff}
     .alert-table{width:100%; border-collapse:separate; border-spacing:0; font-size:12px}
@@ -105,7 +105,6 @@
     .alert-table tbody td{color:#dc2626; font-weight:700}
     .name-left{text-align:left}
 
-    /* ===== RESPONSIVE ===== */
     @media (max-width:1100px){
       .shell{grid-template-columns:1fr}
       .toolbar{top:calc(64px + 8px)}
@@ -133,7 +132,7 @@
       </div>
       <div id="xlsxStatus" class="status">Chưa tải file Excel.</div>
       <div class="status" style="color:var(--muted)">
-        Đặt <b>index.html</b> cùng thư mục với <b>thamso_khaithac.xlsx</b>; không đổi tên cột:
+        Đặt <b>thamso_khaithac.xlsx</b> vào thư mục <b>public/</b> của dự án; giữ nguyên các cột:
         <code>matram, tentram, matinh, Tab, sophut, tinhtong</code>.
       </div>
       <label class="full" style="margin-top:8px">Passcode (nếu API yêu cầu)</label>
@@ -240,10 +239,9 @@
 </div>
 
 <script>
-/* ===== CONFIG ===== */
-const RAW_API_BASE = "http://203.209.181.170:2018";
-const API_BASE = (location.hostname === "localhost" || location.hostname === "127.0.0.1") ? "/api" : RAW_API_BASE;
-const DEFAULT_XLSX_PATH = "./thamso_khaithac.xlsx";
+/* ===== CONFIG (đã sửa dùng Netlify Proxy) ===== */
+const API_PROXY = "/.netlify/functions/proxy";     // GỌI QUA PROXY (HTTPS)
+const DEFAULT_XLSX_PATH = "/thamso_khaithac.xlsx";  // file nằm trong /public
 const EXCEL_SHEET = "KhaibaoQuangtri";
 
 /* ===== UTIL ===== */
@@ -251,9 +249,9 @@ const $ = s => document.querySelector(s);
 const pad = n => String(n).padStart(2,"0");
 const toLocalDatetimeValue = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 const quote = s => `'${s}'`;
-const buildUrl = p => `${API_BASE}/API_TTB/JSON/solieu.php?` + new URLSearchParams(p).toString();
+function buildProxyUrl(p){ return `${API_PROXY}?` + new URLSearchParams(p).toString(); }
 
-/* CSV + BOM để không lỗi Unicode trong Excel */
+/* CSV/XLSX Export */
 function toCSV(rows){
   if(!rows?.length) return "";
   const cols = Object.keys(rows[0]);
@@ -264,7 +262,7 @@ function toCSV(rows){
 }
 function downloadCSV(rows){
   const csv = toCSV(rows);
-  const bom = '\uFEFF'; // BOM UTF-8
+  const bom = '\uFEFF';
   const blob = new Blob([bom, csv], {type: 'text/csv;charset=utf-8;'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -280,7 +278,7 @@ function downloadXLSX(rows){
   XLSX.writeFile(wb, 'mucnuoc_ketqua.xlsx');
 }
 
-/* Fallback CORS: nếu fetch trực tiếp lỗi thì dùng AllOrigins */
+/* Fetch JSON (có fallback AllOrigins nếu CORS lỗi) */
 async function fetchJSON(url){
   async function doFetch(u){
     const res = await fetch(u, { credentials:'include' });
@@ -321,7 +319,7 @@ function loadFromWorkbook(wb){
 async function tryAutoLoadExcel(){
   $('#xlsxStatus').textContent='Đang tải thamso_khaithac.xlsx…';
   const res = await fetch(DEFAULT_XLSX_PATH);
-  if (!res.ok) throw new Error('Không thấy ./thamso_khaithac.xlsx');
+  if (!res.ok) throw new Error('Không thấy /thamso_khaithac.xlsx (đặt file vào thư mục public/)');
   const ab = await res.arrayBuffer();
   const wb = XLSX.read(ab,{type:'array'});
   loadFromWorkbook(wb);
@@ -332,7 +330,7 @@ function fillStationSelects(){
   const box=$('#multiSelect'); box.innerHTML='';
   stations.forEach((r,i)=>{
     const o=document.createElement('option');
-    o.value=i; o.textContent=(r.tentram||'(không tên)').trim();   // chỉ tên trạm
+    o.value=i; o.textContent=(r.tentram||'(không tên)').trim();
     box.appendChild(o);
   });
   for(let i=0;i<Math.min(4,stations.length);i++){ box.options[i].selected=true; }
@@ -390,7 +388,7 @@ function setDateLimits(){
 
 /* ===== MAIN FLOW ===== */
 async function init(){
-  // mặc định: start = 00:00 của 2 ngày trước (không sớm hơn giới hạn); end = now
+  // mặc định: start = 00:00 của 2 ngày trước; end = now
   const now=new Date(), s0=new Date(now); s0.setDate(now.getDate()-2); s0.setHours(0,0,0,0);
   $('#startDt').value=toLocalDT(s0);
   $('#endDt').value=toLocalDT(now);
@@ -432,7 +430,7 @@ async function init(){
       const params={ matram:r.matram, ten_table, sophut:String(sophut), tinhtong:String(tinhtong),
                      thoigianbd:quote(sStr), thoigiankt:quote(eStr) };
       if(pass) params.passcode=pass;
-      const url=buildUrl(params);
+      const url=buildProxyUrl(params);
       try{
         const data=await fetchJSON(url);
         datasets[r.tentram||r.matram]=Array.isArray(data)?data:[];

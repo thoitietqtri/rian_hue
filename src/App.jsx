@@ -9,6 +9,7 @@ import baodongUrl from "./assets/cap_baodong.xlsx?url";
 // Tiện ích đọc Excel & gọi API
 import { readStations } from "./utils/excelLoader";
 import { fetchSolieu } from "./api/client";
+import StationChart from "./components/StationChart.jsx";
 
 // ====== TIỆN ÍCH NHỎ ======
 const pad2 = (n) => String(n).padStart(2, "0");
@@ -467,7 +468,13 @@ export default function App() {
         </div>
       </div>
 
-      <div style={{ marginTop: 14, color: "#666" }}>
+      
+      {/* Đồ thị đường quá trình – lấy từ tableRows, không gọi API */}
+      {Array.isArray(tableRows) && tableRows.length > 0 && (
+        <StationChart tableRows={tableRows} />
+      )}
+
+<div style={{ marginTop: 14, color: "#666" }}>
         <small>
           Gợi ý: Nếu “không có dữ liệu”, hãy kiểm tra <b>ten_table</b> đúng với
           Excel, khoảng thời gian, hoặc API. Xem tab <b>Network</b> để thấy URL

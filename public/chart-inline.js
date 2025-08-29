@@ -1,8 +1,6 @@
 // public/chart-inline.js
 (() => {
-  /* =======================
-     0) CSS gọn gàng
-  ======================= */
+  /* =============== 0) CSS =============== */
   const css = `
   .wl-wrap{margin-top:12px;border:1px solid #e5e7eb;border-radius:10px;padding:12px;background:#fff}
   .wl-toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px}
@@ -20,89 +18,86 @@
   `;
   const st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);
 
-  /* =======================
-     1) Helpers
-  ======================= */
+  /* =============== 1) Helpers =============== */
+  const DBG = () => (window.WL_DEBUG === true);
+  const log = (...a) => { if (DBG()) console.log('[WL]', ...a); };
+
   const norm = s => (s||'').toString()
     .normalize('NFD').replace(/\p{Diacritic}/gu,'').replace(/\s+/g,' ').trim().toLowerCase();
 
   function parseTime(s) {
     if (!s) return NaN;
     s = String(s).trim();
-    // 1) 2025-08-28 07:00[:00]
+    // 1) 2025-08-27 07:00[:00]
     if (/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}(:\d{2})?$/.test(s)) return new Date(s.replace(' ','T')).getTime();
-    // 2) 28/08/2025 07:00[:00]
+    // 2) 27/08/2025 07:00[:00]
     let m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{2}):(\d{2})(?::(\d{2}))?$/);
-    if (m) {
-      const [ , dd, mm, yy, HH, MM, SS='00'] = m;
-      return new Date(`${yy}-${mm.padStart(2,'0')}-${dd.padStart(2,'0')}T${HH}:${MM}:${SS}`).getTime();
-    }
-    // 3) 28-08-2025 07:00[:00]
+    if (m) { const [,dd,mm,yy,HH,MM,SS='00']=m; return new Date(`${yy}-${mm.padStart(2,'0')}-${dd.padStart(2,'0')}T${HH}:${MM}:${SS}`).getTime(); }
+    // 3) 27-08-2025 07:00[:00]
     m = s.match(/^(\d{1,2})-(\d{1,2})-(\d{4})\s+(\d{2}):(\d{2})(?::(\d{2}))?$/);
-    if (m) {
-      const [ , dd, mm, yy, HH, MM, SS='00'] = m;
-      return new Date(`${yy}-${mm.padStart(2,'0')}-${dd.padStart(2,'0')}T${HH}:${MM}:${SS}`).getTime();
-    }
-    // 4) ISO hay các dạng parse được
+    if (m) { const [,dd,mm,yy,HH,MM,SS='00']=m; return new Date(`${yy}-${mm.padStart(2,'0')}-${dd.padStart(2,'0')}T${HH}:${MM}:${SS}`).getTime(); }
+    // 4) ISO
     const t = Date.parse(s);
     return isNaN(t) ? NaN : t;
   }
 
-  // Cột không phải trạm: bỏ qua khi dựng series
+  // Các tiêu đề KHÔNG coi là trạm
   const IGNORE_HEADERS = new Set([
-    'tt','stt','ten song','tên sông','song','ten tram','tên trạm','tram','trạm',
-    'ghi chu','ghi chú','i','ii','iii','bd1','bd2','bd3','cap','cap bao dong',
-    'cap bao dong (m)','cap bao dong(m)','so tram','số trạm'
+    'tt','stt','ten song','tên sông','song',
+    'ten tram','tên trạm','tram','trạm',
+    'ghi chu','ghi chú','i','ii','iii','bd1','bd2','bd3',
+    'cap','cap bao dong','cap bao dong (m)','cap bao dong(m)',
+    'so tram','số trạm'
   ]);
 
-  /* =======================
-     2) Chọn đúng bảng thời gian
-  ======================= */
-  function pickMainTable() {
-    // Ưu tiên selector do anh chỉ định (nếu có)
-    const sel = window.WL_TABLE_SELECTOR;
-    if (sel) {
-      const el = document.querySelector(sel);
-      if (el) return el;
-      console.warn('[WL] Không thấy', sel, '→ dùng dò tự động.');
+  /* =============== 2) Chọn đúng bảng thời gian =============== */
+  function scoreTable(tbl) {
+    const body = tbl.tBodies?.[0] || tbl;
+    const rows = Array.from(body.rows).slice(0, 80);
+    const cols = rows[0]?.cells?.length || 0;
+    if (!rows.length || !cols) return 0;
+
+    // nếu có thead chứa "thời gian/thoi gian" → cộng điểm lớn
+    let headHit = 0;
+    if (tbl.tHead && tbl.tHead.rows.length) {
+      const hd = Array.from(tbl.tHead.rows[tbl.tHead.rows.length-1].cells).map(th=>norm(th.textContent));
+      if (hd.some(h => h.includes('thoi gian') || h.includes('thời gian') || h === 'time')) headHit = 10;
     }
 
+    const hits = new Array(cols).fill(0);
+    for (const r of rows) {
+      for (let c=0;c<cols;c++) {
+        const txt = (r.cells[c]?.textContent || '').trim();
+        if (!isNaN(parseTime(txt))) hits[c]++;
+      }
+    }
+    const best = Math.max(...hits);
+    if (best < 3) return 0;
+
+    const sizeBonus = Math.log1p(rows.length * cols);
+    const score = best + sizeBonus + headHit;
+    if (DBG()) log('scoreTable=', score, 'hits=', hits);
+    return score;
+  }
+
+  function pickMainTable() {
+    if (window.WL_TABLE_SELECTOR) {
+      const el = document.querySelector(window.WL_TABLE_SELECTOR);
+      if (el) { log('Using selector', window.WL_TABLE_SELECTOR); return el; }
+      console.warn('[WL] Không thấy', window.WL_TABLE_SELECTOR, '→ dò tự động.');
+    }
     const tables = Array.from(document.querySelectorAll('table'));
     if (!tables.length) return null;
-
-    // Đánh điểm: có cột thời gian ≥ 3 dòng parse được + kích thước lớn
-    const scoreTable = (tbl) => {
-      const body = tbl.tBodies?.[0] || tbl;
-      const rows = Array.from(body.rows).slice(0, 80);  // lấy mẫu 80 dòng
-      const cols = rows[0]?.cells?.length || 0;
-      if (!rows.length || !cols) return 0;
-
-      const timeHits = new Array(cols).fill(0);
-      for (const r of rows) {
-        for (let c=0;c<cols;c++) {
-          const txt = (r.cells[c]?.textContent || '').trim();
-          if (!isNaN(parseTime(txt))) timeHits[c]++;
-        }
-      }
-      const best = Math.max(...timeHits);
-      if (best < 3) return 0; // không có cột thời gian -> loại
-
-      // thưởng theo kích thước bảng (ưu tiên bảng kết quả lớn)
-      const sizeBonus = Math.log1p(rows.length * cols);
-      return best + sizeBonus;
-    };
-
     let bestTbl = null, bestScore = 0;
     for (const t of tables) {
       const s = scoreTable(t);
       if (s > bestScore) { bestScore = s; bestTbl = t; }
     }
+    log('pickMainTable done. bestScore=', bestScore, bestTbl);
     return bestTbl;
   }
 
-  /* =======================
-     3) Đọc bảng → series theo từng trạm
-  ======================= */
+  /* =============== 3) Đọc bảng → series theo trạm =============== */
   function parseTable(tbl) {
     const thead = tbl.tHead;
     const headRow = thead?.rows?.[thead.rows.length-1] || null;
@@ -115,14 +110,15 @@
     const allRows = Array.from(body.rows);
     const rows = headRow ? allRows : allRows.slice(1); // nếu không có thead, bỏ dòng đầu làm header
 
-    // --- Tìm cột thời gian bằng dữ liệu ---
-    let timeCol = -1;
-    {
+    // --- Tìm cột thời gian ---
+    let timeCol = headersNorm.findIndex(h => h.includes('thoi gian') || h.includes('thời gian') || h === 'time');
+    if (timeCol < 0) {
+      // dựa theo dữ liệu
       const sampleRows = rows.slice(0, 120);
       const cols = (sampleRows[0]?.cells?.length || 0);
       const hits = new Array(cols).fill(0);
       for (const r of sampleRows) {
-        for (let c = 0; c < cols; c++) {
+        for (let c=0;c<cols;c++) {
           const txt = (r.cells[c]?.textContent || '').trim();
           if (!isNaN(parseTime(txt))) hits[c]++;
         }
@@ -130,9 +126,10 @@
       const bestHits = Math.max(...hits);
       timeCol = hits.findIndex(h => h === bestHits && bestHits >= 3);
     }
+    if (DBG()) log('headers=', headers, 'timeCol=', timeCol);
     if (timeCol < 0) throw new Error('Không tìm thấy cột thời gian.');
 
-    // --- Chọn các cột trạm: dữ liệu số + không thuộc danh sách loại trừ ---
+    // --- Chọn cột trạm: là cột số & không nằm trong danh sách loại trừ ---
     const isNumericCol = (colIdx) => {
       let cnt=0, total=0;
       for (const r of rows) {
@@ -142,7 +139,7 @@
         if (!isNaN(+raw)) cnt++;
         if (total>=8) break;
       }
-      return cnt>=4; // ít nhất 4/8 mẫu là số
+      return cnt>=4; // ≥4/8 mẫu là số
     };
 
     const stationCols = [];
@@ -153,6 +150,7 @@
       if (!isNumericCol(i)) continue;
       stationCols.push({ name: headers[i] || ('Cột '+(i+1)), idx: i });
     }
+    if (DBG()) log('stationCols=', stationCols);
 
     // --- Lấy dữ liệu ---
     const series = stationCols.map(sc => {
@@ -164,7 +162,6 @@
         const v = Number(vStr);
         if (!isNaN(t) && Number.isFinite(v)) arr.push({t, y:v});
       }
-      // sort & unique theo time
       const sorted = arr.sort((a,b)=>a.t-b.t);
       const uniq = [];
       for (const p of sorted) {
@@ -176,9 +173,7 @@
     return { series, headers, timeCol };
   }
 
-  /* =======================
-     4) Vẽ đồ thị SVG
-  ======================= */
+  /* =============== 4) Vẽ đồ thị SVG =============== */
   function renderChart(container, series, initName) {
     container.innerHTML = '';
 
@@ -212,15 +207,14 @@
 
       const minX = data[0].t, maxX = data[data.length-1].t;
       let minY = Math.min(...data.map(d=>d.y));
-      let maxY = Math.max(...data.map(d=>d.y));
-      if (minY===maxY){ maxY=minY+1; }
+      let maxY = Math.max(...data.map(d=>d.y)); if (minY===maxY) maxY=minY+1;
 
       const sx = x => m.l + (x-minX)/(maxX-minX)*(W-m.l-m.r);
       const sy = y => H-m.b - (y-minY)/(maxY-minY)*(H-m.t-m.b);
 
       // grid
-      const yTicks = 5, xTicks = Math.min(6, data.length-1);
-      const yStep=(maxY-minY)/yTicks, xStep=(maxX-minX)/(xTicks||1);
+      const yTicks = 5, xTicks = Math.min(6, Math.max(1, data.length-1));
+      const yStep=(maxY-minY)/yTicks, xStep=(maxX-minX)/xTicks;
       let g = '';
       for(let i=0;i<=yTicks;i++){ const y=sy(minY+i*yStep); g += `<line class="wl-grid" x1="${m.l}" y1="${y}" x2="${W-m.r}" y2="${y}"/>`; }
       for(let i=0;i<=xTicks;i++){ const x=sx(minX+i*xStep); g += `<line class="wl-grid" x1="${x}" y1="${m.t}" x2="${x}" y2="${H-m.b}"/>`; }
@@ -260,13 +254,10 @@
     }
 
     update();
-    // Rerender khi resize
     let rAF; window.addEventListener('resize', () => { cancelAnimationFrame(rAF); rAF = requestAnimationFrame(update); });
   }
 
-  /* =======================
-     5) Mount dưới bảng + theo dõi thay đổi
-  ======================= */
+  /* =============== 5) Mount + theo dõi thay đổi =============== */
   function mountUnderTable(tbl) {
     const mount = document.createElement('div');
     tbl.parentNode.insertAdjacentElement('afterend', mount);
@@ -278,7 +269,6 @@
           mount.innerHTML = '<div class="wl-wrap"><div class="wl-msg">Không tìm thấy dữ liệu thời gian để vẽ đồ thị.</div></div>';
           return;
         }
-        // Nếu có danh sách trạm (select multiple), ưu tiên trạm đầu tiên được chọn
         let initName = null;
         const sel = document.querySelector('select[multiple]');
         if (sel) {
@@ -300,7 +290,7 @@
 
   function init() {
     const tbl = pickMainTable();
-    if (!tbl) { console.warn('[WL] Không tìm thấy bảng nào có cột thời gian.'); return; }
+    if (!tbl) { console.warn('[WL] Không tìm thấy bảng có cột thời gian.'); return; }
     mountUnderTable(tbl);
   }
 

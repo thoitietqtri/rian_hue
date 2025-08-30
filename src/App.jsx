@@ -1,4 +1,5 @@
 // src/App.jsx
+import StationChart from "./components/StationChart.jsx";
 import React, { useEffect, useMemo, useState } from "react";
 import * as XLSX from "xlsx";
 
@@ -469,10 +470,11 @@ export default function App() {
       </div>
 
       
-      {/* Đồ thị đường quá trình – lấy từ tableRows, không gọi API */}
-      {Array.isArray(tableRows) && tableRows.length > 0 && (
-        <StationChart tableRows={tableRows} />
-      )}
+      {/* === ĐỒ THỊ QUÁ TRÌNH MỰC NƯỚC (đọc trực tiếp mảng dữ liệu bảng) === */}
+<StationChart
+  tableRows={(typeof tableRows!=="undefined" && tableRows) || (typeof rows!=="undefined" && rows) || []}
+  // preferTimeKeys={['Thời gian','Thoi gian','ThoiGian','time']} // mở nếu cột thời gian tên đặc thù
+/>
 
 <div style={{ marginTop: 14, color: "#666" }}>
         <small>

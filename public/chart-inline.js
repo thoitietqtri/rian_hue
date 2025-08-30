@@ -289,11 +289,18 @@
   }
 
   function init() {
+  const tryAttach = () => {
     const tbl = pickMainTable();
-    if (!tbl) { console.warn('[WL] Không tìm thấy bảng có cột thời gian.'); return; }
-    mountUnderTable(tbl);
-  }
+    if (tbl) { mountUnderTable(tbl); return true; }
+    return false;
+  };
 
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
-  else setTimeout(init, 0);
-})();
+  // thử gắn ngay
+  if (tryAttach()) return;
+
+  // nếu chưa có bảng, theo dõi DOM cho đến khi bảng thời gian xuất hiện rồi gắn
+  const obs = new MutationObserver(() => {
+    if (tryAttach()) obs.disconnect();
+  });
+  obs.observe(document.body, { childList: true, subtree: true });
+}

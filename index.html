@@ -70,6 +70,14 @@
     .summary{font-size:13px; color:#1f2937}
     .toolbar-actions{display:flex; gap:8px}
 
+    /* ===== RESULTS GRID (table left + chart right) ===== */
+    .results-grid{
+      display:grid;
+      grid-template-columns:minmax(440px,48%) 1fr;
+      gap:12px;
+      align-items:start;
+    }
+
     /* ===== TABLE (LOG) ===== */
     .scroll{overflow:auto; border:1px solid var(--grid); border-radius:12px; background:#fff}
     table{width:max-content; border-collapse:separate; border-spacing:0; font-size:12px; white-space:nowrap}
@@ -108,6 +116,7 @@
     @media (max-width:1100px){
       .shell{grid-template-columns:1fr}
       .toolbar{top:calc(64px + 8px)}
+      .results-grid{grid-template-columns:1fr}
     }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -229,19 +238,31 @@
       </div>
     </div>
 
-    <div class="scroll card" style="padding:0">
-      <table>
-        <thead><tr id="thead"></tr></thead>
-        <tbody id="tbody"></tbody>
-      </table>
+    <!-- KẾT QUẢ: bảng trái + đồ thị phải -->
+    <div class="card" style="padding:12px">
+      <div class="results-grid">
+        <div class="scroll" id="tableBox" style="padding:0">
+          <table>
+            <thead><tr id="thead"></tr></thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+
+        <!-- Chart box -->
+        <div id="chartBox" class="card" style="min-height:360px">
+          <div style="font-size:12px;color:#64748b">
+            Chưa có dữ liệu để vẽ đồ thị.
+          </div>
+        </div>
+      </div>
     </div>
   </main>
 </div>
 
 <script>
-/* ===== CONFIG (đã sửa dùng Netlify Proxy) ===== */
-const API_PROXY = "/.netlify/functions/proxy";     // GỌI QUA PROXY (HTTPS)
-const DEFAULT_XLSX_PATH = "/thamso_khaithac.xlsx";  // file nằm trong /public
+/* ===== CONFIG (Netlify Proxy) ===== */
+const API_PROXY = "/.netlify/functions/proxy";
+const DEFAULT_XLSX_PATH = "/thamso_khaithac.xlsx";
 const EXCEL_SHEET = "KhaibaoQuangtri";
 
 /* ===== UTIL ===== */
@@ -278,7 +299,7 @@ function downloadXLSX(rows){
   XLSX.writeFile(wb, 'mucnuoc_ketqua.xlsx');
 }
 
-/* Fetch JSON (có fallback AllOrigins nếu CORS lỗi) */
+/* Fetch JSON (fallback AllOrigins nếu CORS lỗi) */
 async function fetchJSON(url){
   async function doFetch(u){
     const res = await fetch(u, { credentials:'include' });
@@ -341,6 +362,7 @@ function renderTable(rows){
     thead.innerHTML='<th>(trống)</th>';
     $('#summary').textContent='Không có dữ liệu để hiển thị.';
     $('#btnExport').disabled=true; $('#btnExportXlsx').disabled=true;
+    renderChart([]);  // dọn chart
     return;
   }
   const cols=Object.keys(rows[0]);
@@ -355,6 +377,9 @@ function renderTable(rows){
   $('#summary').textContent = `Hiển thị ${rows.length} mốc thời gian — ${cols.length-1} trạm.`;
   $('#btnExport').disabled=false; $('#btnExportXlsx').disabled=false;
   window.__lastRows = rows;
+
+  // VẼ ĐỒ THỊ từ chính rows đang hiển thị
+  renderChart(rows);
 }
 
 /* ===== PIVOT BY TIME ===== */
@@ -384,6 +409,169 @@ function setDateLimits(){
 
   if (!endEl.value || new Date(endEl.value) < new Date(startEl.value)) endEl.value = toLocalDT(now);
   if (new Date(endEl.value) > now) endEl.value = toLocalDT(now);
+}
+
+/* ===== CHART (SVG thuần, robust) ===== */
+function parseTimeMaybe(s){
+  if(s==null) return NaN;
+  const t=String(s).trim(); if(!t) return NaN;
+  if(/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}(:\d{2})?$/.test(t)) return new Date(t.replace(" ","T")).getTime();
+  let m=t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{2}):(\d{2})(?::(\d{2}))?$/);
+  if(m){ const[,dd,mm,yy,HH,MM,SS="00"]=m; return new Date(`${yy}-${pad(dd)}-${pad(mm)}T${HH}:${MM}:${SS}`).getTime(); }
+  m=t.match(/^(\d{1,2})-(\d{1,2})-(\d{4})\s+(\d{2}):(\d{2})(?::(\d{2}))?$/);
+  if(m){ const[,dd,mm,yy,HH,MM,SS="00"]=m; return new Date(`${yy}-${pad(mm)}-${pad(dd)}T${HH}:${MM}:${SS}`).getTime(); }
+  const p=Date.parse(t); return Number.isNaN(p)?NaN:p;
+}
+function toNum(v){ const n=parseFloat(String(v??"").trim().replace(",", ".")); return Number.isFinite(n)?n:NaN; }
+
+function buildSeriesFromRows(rows){
+  if(!Array.isArray(rows)||!rows.length) return {series:[], xType:"empty", xValues:[], xLabels:[]};
+  const keys=Object.keys(rows[0]);
+  // timeKey ưu tiên 'thoi gian' rồi đến các biến thể
+  const timeKey = keys.find(k => k.toLowerCase().includes('thoi') && k.toLowerCase().includes('gian'))
+                 || keys.find(k => /time|ngay|date/i.test(k))
+                 || null;
+
+  // X values
+  let xType="time", xValues=[], xLabels=[];
+  if(timeKey){
+    const parsed = rows.map(r=>parseTimeMaybe(r[timeKey]));
+    const ok = parsed.filter(v=>!Number.isNaN(v)).length;
+    if(ok>=2){ xType="time"; xValues=parsed; xLabels=rows.map(r=>String(r[timeKey]??"")); }
+    else { xType="index"; xValues=rows.map((_,i)=>i); xLabels=rows.map(r=>String(r[timeKey]??`#${i+1}`)); }
+  }else{
+    xType="index"; xValues=rows.map((_,i)=>i); xLabels=rows.map((_,i)=>`#${i+1}`);
+  }
+
+  // series per station (mọi cột khác timeKey và có ≥2 số)
+  const series=[];
+  for(const k of keys){
+    if(k===timeKey) continue;
+    const pts=[];
+    for(let i=0;i<rows.length;i++){
+      const y=toNum(rows[i][k]); const x=xValues[i];
+      if(!Number.isNaN(x)&&Number.isFinite(y)) pts.push({x,y});
+    }
+    if(pts.length>=2){ pts.sort((a,b)=>a.x-b.x); series.push({name:k, data:pts}); }
+  }
+  return {series, xType, xValues, xLabels};
+}
+
+function renderChart(rows){
+  const host = $('#chartBox');
+  host.innerHTML = ''; // clear
+  // khung
+  const title = document.createElement('div');
+  title.style.cssText='font-size:12px;color:#64748b;margin-bottom:8px';
+  title.textContent='Đồ thị quá trình mực nước — dữ liệu từ bảng đang hiển thị.';
+  host.appendChild(title);
+
+  const {series, xType, xValues, xLabels} = buildSeriesFromRows(rows);
+  if(!series.length){
+    const div=document.createElement('div'); div.style.cssText='font-size:12px;color:#64748b';
+    div.textContent='Không đủ dữ liệu số để vẽ đồ thị.';
+    host.appendChild(div); return;
+  }
+
+  // toolbar
+  const bar=document.createElement('div');
+  bar.style.cssText='display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px';
+  host.appendChild(bar);
+
+  let selected=series[0].name;
+
+  function draw(){
+    const old=host.querySelector('svg'); if(old) old.remove();
+    const sel=series.find(s=>s.name===selected) || series[0];
+    const data=sel.data;
+    const W=host.clientWidth||800, H=330, m={l:48,r:16,t:12,b:28};
+    const minX=Math.min(...data.map(d=>d.x)), maxX=Math.max(...data.map(d=>d.x));
+    let minY=Math.min(...data.map(d=>d.y)), maxY=Math.max(...data.map(d=>d.y)); if(minY===maxY) maxY=minY+1e-6;
+
+    const sx=x=> m.l + ((x-minX)/(maxX-minX||1))*(W-m.l-m.r);
+    const sy=y=> H-m.b - ((y-minY)/(maxY-minY||1))*(H-m.t-m.b);
+
+    const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+    svg.setAttribute('width','100%'); svg.setAttribute('height',H);
+    svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
+    host.appendChild(svg);
+
+    const yTicks=5, xTicks=Math.min(6, Math.max(1, data.length-1));
+    const yStep=(maxY-minY)/yTicks, xStep=(maxX-minX)/xTicks;
+
+    // grid
+    for(let i=0;i<=yTicks;i++){
+      const y=sy(minY+i*yStep);
+      const line=document.createElementNS(svg.namespaceURI,'line');
+      line.setAttribute('x1',m.l); line.setAttribute('y1',y);
+      line.setAttribute('x2',W-m.r); line.setAttribute('y2',y);
+      line.setAttribute('stroke','#e2e8f0'); line.setAttribute('stroke-dasharray','3 3');
+      svg.appendChild(line);
+    }
+    for(let i=0;i<=xTicks;i++){
+      const x=sx(minX+i*xStep);
+      const line=document.createElementNS(svg.namespaceURI,'line');
+      line.setAttribute('x1',x); line.setAttribute('y1',m.t);
+      line.setAttribute('x2',x); line.setAttribute('y2',H-m.b);
+      line.setAttribute('stroke','#e2e8f0'); line.setAttribute('stroke-dasharray','3 3');
+      svg.appendChild(line);
+    }
+
+    // path
+    let d=`M ${sx(data[0].x)} ${sy(data[0].y)}`;
+    for(let i=1;i<data.length;i++) d += ` L ${sx(data[i].x)} ${sy(data[i].y)}`;
+    const path=document.createElementNS(svg.namespaceURI,'path');
+    path.setAttribute('d', d); path.setAttribute('fill','none');
+    path.setAttribute('stroke','#0ea5e9'); path.setAttribute('stroke-width','2');
+    svg.appendChild(path);
+
+    // labels X
+    function labelAt(xv){
+      if(xType==='time'){
+        // tìm vị trí gần nhất để lấy label gốc
+        let lo=0, hi=xValues.length-1;
+        while(hi-lo>1){ const mid=(lo+hi)>>1; (xValues[mid]<xv) ? (lo=mid):(hi=mid); }
+        const idx=(Math.abs(xValues[lo]-xv)<=Math.abs(xValues[hi]-xv))?lo:hi;
+        const raw=xLabels[idx]||'';
+        const m=/\b(\d{2}):(\d{2})/.exec(String(raw));
+        return m?`${m[1]}:${m[2]}`:String(raw);
+      } else {
+        const i=Math.round(xv);
+        return xLabels[i] || `#${i+1}`;
+      }
+    }
+    for(let i=0;i<=xTicks;i++){
+      const xv=minX+i*xStep, x=sx(xv);
+      const t=document.createElementNS(svg.namespaceURI,'text');
+      t.setAttribute('x',x); t.setAttribute('y',H-6);
+      t.setAttribute('text-anchor','middle'); t.setAttribute('font-size','11'); t.setAttribute('fill','#334155');
+      t.textContent=labelAt(xv);
+      svg.appendChild(t);
+    }
+    for(let i=0;i<=yTicks;i++){
+      const yv=minY+i*yStep, y=sy(yv);
+      const t=document.createElementNS(svg.namespaceURI,'text');
+      t.setAttribute('x',m.l-6); t.setAttribute('y',y+4);
+      t.setAttribute('text-anchor','end'); t.setAttribute('font-size','11'); t.setAttribute('fill','#334155');
+      t.textContent=yv.toFixed(2);
+      svg.appendChild(t);
+    }
+  }
+
+  // buttons
+  series.forEach(s=>{
+    const b=document.createElement('button');
+    b.textContent=s.name;
+    b.style.cssText='padding:6px 10px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;font-size:13px;cursor:pointer';
+    b.addEventListener('click',()=>{ selected=s.name; [...bar.children].forEach(x=>x.style.background='#f8fafc'); b.style.background='#2563eb'; b.style.color='#fff'; draw(); });
+    bar.appendChild(b);
+  });
+  // set active đầu tiên
+  if(bar.firstChild){ bar.firstChild.click(); } else { draw(); }
+
+  // responsive
+  const ro = new ResizeObserver(()=>draw());
+  ro.observe($('#chartBox'));
 }
 
 /* ===== MAIN FLOW ===== */
@@ -461,6 +649,7 @@ async function init(){
     $('#thead').innerHTML=''; $('#tbody').innerHTML='';
     $('#summary').textContent='Đã xoá kết quả.';
     $('#btnExport').disabled=true; $('#btnExportXlsx').disabled=true;
+    renderChart([]);
   });
 
   // Export

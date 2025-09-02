@@ -411,6 +411,42 @@ function setDateLimits(){
   if (new Date(endEl.value) > now) endEl.value = toLocalDT(now);
 }
 
+/* ===== CHART HELPERS: BD1/BD2/BD3 từ bảng cảnh báo ===== */
+function normName(s){
+  return (s??"").toString()
+    .normalize("NFD").replace(/\p{Diacritic}/gu,"")
+    .replace(/\s+/g," ").trim().toLowerCase();
+}
+function initBDLevels(){
+  const map = new Map();
+  const rows = document.querySelectorAll(".alert-table tbody tr");
+  rows.forEach(tr=>{
+    const tds = tr.querySelectorAll("td");
+    const tenTram = tds[2]?.textContent?.trim() ?? ""; // cột tên trạm
+    const bd1 = Number((tds[3]?.textContent ?? "").replace(",", "."));
+    const bd2 = Number((tds[4]?.textContent ?? "").replace(",", "."));
+    const bd3 = Number((tds[5]?.textContent ?? "").replace(",", "."));
+    if(tenTram){
+      map.set(normName(tenTram), {
+        name: tenTram,
+        bd1: Number.isFinite(bd1) ? bd1 : null,
+        bd2: Number.isFinite(bd2) ? bd2 : null,
+        bd3: Number.isFinite(bd3) ? bd3 : null
+      });
+    }
+  });
+  window.__BD_MAP = map;
+}
+function findBDFor(stationName){
+  const key = normName(stationName);
+  const map = window.__BD_MAP || new Map();
+  if(map.has(key)) return map.get(key);
+  for(const [k,v] of map.entries()){
+    if(k.includes(key) || key.includes(k)) return v; // khớp gần đúng
+  }
+  return null;
+}
+
 /* ===== CHART (SVG thuần, robust) ===== */
 function parseTimeMaybe(s){
   if(s==null) return NaN;
@@ -427,23 +463,20 @@ function toNum(v){ const n=parseFloat(String(v??"").trim().replace(",", ".")); r
 function buildSeriesFromRows(rows){
   if(!Array.isArray(rows)||!rows.length) return {series:[], xType:"empty", xValues:[], xLabels:[]};
   const keys=Object.keys(rows[0]);
-  // timeKey ưu tiên 'thoi gian' rồi đến các biến thể
   const timeKey = keys.find(k => k.toLowerCase().includes('thoi') && k.toLowerCase().includes('gian'))
                  || keys.find(k => /time|ngay|date/i.test(k))
                  || null;
 
-  // X values
   let xType="time", xValues=[], xLabels=[];
   if(timeKey){
     const parsed = rows.map(r=>parseTimeMaybe(r[timeKey]));
     const ok = parsed.filter(v=>!Number.isNaN(v)).length;
     if(ok>=2){ xType="time"; xValues=parsed; xLabels=rows.map(r=>String(r[timeKey]??"")); }
-    else { xType="index"; xValues=rows.map((_,i)=>i); xLabels=rows.map(r=>String(r[timeKey]??`#${i+1}`)); }
+    else { xType="index"; xValues=rows.map((_,i)=>i); xLabels=rows.map((r,i)=>String(r[timeKey]??`#${i+1}`)); }
   }else{
     xType="index"; xValues=rows.map((_,i)=>i); xLabels=rows.map((_,i)=>`#${i+1}`);
   }
 
-  // series per station (mọi cột khác timeKey và có ≥2 số)
   const series=[];
   for(const k of keys){
     if(k===timeKey) continue;
@@ -459,8 +492,7 @@ function buildSeriesFromRows(rows){
 
 function renderChart(rows){
   const host = $('#chartBox');
-  host.innerHTML = ''; // clear
-  // khung
+  host.innerHTML = '';
   const title = document.createElement('div');
   title.style.cssText='font-size:12px;color:#64748b;margin-bottom:8px';
   title.textContent='Đồ thị quá trình mực nước — dữ liệu từ bảng đang hiển thị.';
@@ -473,7 +505,6 @@ function renderChart(rows){
     host.appendChild(div); return;
   }
 
-  // toolbar
   const bar=document.createElement('div');
   bar.style.cssText='display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px';
   host.appendChild(bar);
@@ -484,9 +515,11 @@ function renderChart(rows){
     const old=host.querySelector('svg'); if(old) old.remove();
     const sel=series.find(s=>s.name===selected) || series[0];
     const data=sel.data;
+
     const W=host.clientWidth||800, H=330, m={l:48,r:16,t:12,b:28};
     const minX=Math.min(...data.map(d=>d.x)), maxX=Math.max(...data.map(d=>d.x));
-    let minY=Math.min(...data.map(d=>d.y)), maxY=Math.max(...data.map(d=>d.y)); if(minY===maxY) maxY=minY+1e-6;
+    let minY=Math.min(...data.map(d=>d.y)), maxY=Math.max(...data.map(d=>d.y));
+    if(minY===maxY) maxY=minY+1e-6;
 
     const sx=x=> m.l + ((x-minX)/(maxX-minX||1))*(W-m.l-m.r);
     const sy=y=> H-m.b - ((y-minY)/(maxY-minY||1))*(H-m.t-m.b);
@@ -517,7 +550,7 @@ function renderChart(rows){
       svg.appendChild(line);
     }
 
-    // path
+    // Đường quá trình (màu xanh)
     let d=`M ${sx(data[0].x)} ${sy(data[0].y)}`;
     for(let i=1;i<data.length;i++) d += ` L ${sx(data[i].x)} ${sy(data[i].y)}`;
     const path=document.createElementNS(svg.namespaceURI,'path');
@@ -525,10 +558,39 @@ function renderChart(rows){
     path.setAttribute('stroke','#0ea5e9'); path.setAttribute('stroke-width','2');
     svg.appendChild(path);
 
-    // labels X
+    // ===== VẼ BĐ1/BĐ2/BĐ3 (vàng/da cam/đỏ) nếu có =====
+    const lv = findBDFor(sel.name);
+    const COLORS = { bd1:'#eab308', bd2:'#f97316', bd3:'#ef4444' };
+    function drawHLine(val, color, label){
+      if(val==null || !Number.isFinite(val)) return;
+      const y = sy(val);
+      if (y < m.t-4 || y > H-m.b+4) return; // ngoài khung thì bỏ
+      const line=document.createElementNS(svg.namespaceURI,'line');
+      line.setAttribute('x1',m.l); line.setAttribute('y1',y);
+      line.setAttribute('x2',W-m.r); line.setAttribute('y2',y);
+      line.setAttribute('stroke',color); line.setAttribute('stroke-width','1.8');
+      line.setAttribute('stroke-dasharray','6 4');
+      svg.appendChild(line);
+
+      const tag=document.createElementNS(svg.namespaceURI,'text');
+      tag.setAttribute('x', W - m.r - 4);
+      tag.setAttribute('y', y - 4);
+      tag.setAttribute('text-anchor','end');
+      tag.setAttribute('font-size','11');
+      tag.setAttribute('font-weight','700');
+      tag.setAttribute('fill', color);
+      tag.textContent = `${label} (${val})`;
+      svg.appendChild(tag);
+    }
+    if(lv){
+      drawHLine(lv.bd1, COLORS.bd1, 'BĐ1');
+      drawHLine(lv.bd2, COLORS.bd2, 'BĐ2');
+      drawHLine(lv.bd3, COLORS.bd3, 'BĐ3');
+    }
+
+    // Nhãn trục X
     function labelAt(xv){
       if(xType==='time'){
-        // tìm vị trí gần nhất để lấy label gốc
         let lo=0, hi=xValues.length-1;
         while(hi-lo>1){ const mid=(lo+hi)>>1; (xValues[mid]<xv) ? (lo=mid):(hi=mid); }
         const idx=(Math.abs(xValues[lo]-xv)<=Math.abs(xValues[hi]-xv))?lo:hi;
@@ -558,18 +620,21 @@ function renderChart(rows){
     }
   }
 
-  // buttons
+  // Nút chọn series
   series.forEach(s=>{
     const b=document.createElement('button');
     b.textContent=s.name;
     b.style.cssText='padding:6px 10px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;font-size:13px;cursor:pointer';
-    b.addEventListener('click',()=>{ selected=s.name; [...bar.children].forEach(x=>x.style.background='#f8fafc'); b.style.background='#2563eb'; b.style.color='#fff'; draw(); });
+    b.addEventListener('click',()=>{
+      selected=s.name;
+      [...bar.children].forEach(x=>{ x.style.background='#f8fafc'; x.style.color='initial'; });
+      b.style.background='#2563eb'; b.style.color='#fff';
+      draw();
+    });
     bar.appendChild(b);
   });
-  // set active đầu tiên
   if(bar.firstChild){ bar.firstChild.click(); } else { draw(); }
 
-  // responsive
   const ro = new ResizeObserver(()=>draw());
   ro.observe($('#chartBox'));
 }
@@ -655,6 +720,9 @@ async function init(){
   // Export
   $('#btnExport').addEventListener('click', ()=> downloadCSV(window.__lastRows||[]));
   $('#btnExportXlsx').addEventListener('click', ()=> downloadXLSX(window.__lastRows||[]));
+
+  // Khởi tạo map ngưỡng BĐ từ bảng cảnh báo
+  initBDLevels();
 
   try{ await tryAutoLoadExcel(); }
   catch(e){ $('#xlsxStatus').className='status'; $('#xlsxStatus').textContent='Không tìm thấy file mặc định. Hãy chọn file .xlsx thủ công.'; }

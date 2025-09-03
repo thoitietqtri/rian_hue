@@ -5,88 +5,344 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>LƯỢNG MƯA CÁC TRẠM TỰ ĐỘNG TRÊN ĐỊA BÀN TỈNH QUẢNG TRỊ</title>
 
+  <!-- ====== Base UI ====== -->
   <style>
-    body{margin:0;background:#f1f5f9;font-family:Inter,system-ui,Avenir,Helvetica,Arial,sans-serif}
-    header{padding:16px;text-align:center;background:#fff;border-bottom:1px solid #e2e8f0}
-    header h1{margin:0;font-size:22px;color:#1d4ed8}
-    header h2{margin:4px 0 0;font-size:14px;color:#334155}
+    :root{
+      --bg:#f6f8ff; --card:#fff; --txt:#0f172a; --muted:#64748b; --pri:#1d4ed8;
+      --ok:#16a34a; --err:#dc2626; --grid:#e2e8f0; --grid-strong:#94a3b8;
+      --shadow:0 10px 30px -14px rgba(2,6,23,.25);
+      --radius:14px;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; background:var(--bg); color:var(--txt);
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
+      display:grid; place-items:center; min-height:100vh;
+    }
 
-    .shell{max-width:1280px;margin:20px auto;padding:12px;display:grid;grid-template-columns:340px 1fr;gap:16px}
-    .card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:14px;box-shadow:0 4px 10px rgba(0,0,0,.05)}
+    /* ===== HEADER ===== */
+    header{
+      width:100%; max-width:1600px;
+      position:sticky; top:0; z-index:4;
+      background:linear-gradient(180deg,#fff, #fff 70%, rgba(255,255,255,.6));
+      border-bottom:1px solid var(--grid); padding:18px 16px;
+    }
+    .title{margin:0; text-align:center; color:var(--pri); font-weight:800; letter-spacing:.4px}
+    .title .l1{font-size:26px; text-transform:uppercase}
+    .title .l2{font-size:13px; color:#334155; margin-top:6px; font-weight:600}
 
-    .rain-table{border-collapse:collapse;width:100%;min-width:720px}
-    .rain-table th,.rain-table td{border:1px solid #e2e8f0;padding:6px 8px;text-align:center;font-size:13px}
-    .rain-table th{background:#f8fafc;position:sticky;top:0;z-index:1}
-    .rain-table tfoot td{font-weight:900;color:#c1121f;background:#fff5f5}
+    /* ===== LAYOUT ===== */
+    .shell{
+      width:min(1600px, 100vw - 24px);
+      margin:16px auto;
+      display:grid; grid-template-columns: 420px 1fr; gap:16px;
+    }
+    .card{
+      background:var(--card); border:1px solid var(--grid); border-radius:var(--radius);
+      box-shadow:var(--shadow); padding:14px;
+    }
+    .section{margin-bottom:14px}
+    .section-title{
+      display:flex; align-items:center; gap:8px;
+      font-weight:800; color:#0b1437; margin:0 0 8px 0; font-size:14px;
+    }
+    .section-title .tag{font-size:11px; background:#e2e8f0; color:#334155; border-radius:999px; padding:2px 8px}
 
-    .mm-black{color:#111827;font-weight:700}
-    .mm-green{color:#16a34a;font-weight:800}
-    .mm-purple{color:#7c3aed;font-weight:800}
-    .mm-red{color:#dc2626;font-weight:900}
+    /* ===== FORM ===== */
+    label{font-size:12px; color:var(--muted); display:block; margin:4px 0}
+    input,select,button,textarea{
+      width:100%; padding:10px 12px; border:1px solid #cbd5e1; border-radius:10px;
+      font-size:14px; background:#fff;
+    }
+    .row{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+    .full{grid-column:1/-1}
+    .btn{background:var(--pri); color:#fff; border:none; cursor:pointer; font-weight:700}
+    .btn.secondary{background:#64748b}
+    .btn.ghost{background:#eef2ff; color:#1e40af}
+    .btn:disabled{opacity:.6; cursor:not-allowed}
+    .status{font-size:12px; margin-top:6px}
+    .status.ok{color:var(--ok)} .status.err{color:var(--err)}
+
+    /* ===== TOOLBAR ===== */
+    .toolbar{
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+      position:sticky; top:calc(64px + 16px); z-index:3;
+    }
+    .summary{font-size:13px; color:#1f2937}
+    .toolbar-actions{display:flex; gap:8px}
+
+    /* ===== RESULTS GRID (table left + chart right) ===== */
+    .results-grid{
+      display:grid;
+      grid-template-columns:minmax(440px,48%) 1fr;
+      gap:12px;
+      align-items:start;
+    }
+
+    /* ===== TABLE (LOG) ===== */
+    .scroll{overflow:auto; border:1px solid var(--grid); border-radius:12px; background:#fff}
+    table{width:max-content; border-collapse:separate; border-spacing:0; font-size:12px; white-space:nowrap}
+    thead th, tbody td{
+      padding:8px 12px; text-align:center; vertical-align:middle;
+      border-right:1.5px solid var(--grid-strong); border-bottom:1.5px solid var(--grid-strong);
+    }
+    thead th:first-child, tbody td:first-child{border-left:1.5px solid var(--grid-strong)}
+    thead th{
+      position:sticky; top:0; z-index:2; background:#f1f5f9; border-bottom-color:#64748b;
+      font-weight:800;
+    }
+    thead th:first-child{left:0; z-index:4}
+    tbody td:first-child{position:sticky; left:0; background:#fff; z-index:3; text-align:left}
+
+    /* ===== DATETIME ===== */
+    .dt{display:grid; grid-template-columns:1fr 1fr; gap:10px; align-items:end; position:relative; z-index:30;}
+    .dt input[type="datetime-local"]{
+      height:44px; background:#f8fafc; border:1.5px solid var(--grid-strong); font-weight:600; letter-spacing:.2px;
+      padding-right:36px; position:relative; z-index:31;
+    }
+
+    @media (max-width:1100px){
+      .shell{grid-template-columns:1fr}
+      .toolbar{top:calc(64px + 8px)}
+      .results-grid{grid-template-columns:1fr}
+    }
   </style>
 
+  <!-- ====== Styles riêng cho app mưa (bảng + chart) ====== -->
+  <style>
+  body{margin:0;background:#f1f5f9;font-family:Inter,system-ui,Avenir,Helvetica,Arial,sans-serif}
+  .container{max-width:1280px;margin:18px auto;padding:12px}
+  .header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+  .header h2{margin:0;font-size:20px;font-weight:800;color:#0f172a}
+  .header .total{font-weight:900;color:#c1121f}
+  .toolbar{display:grid;grid-template-columns:200px 200px 220px 140px 1fr;gap:10px;align-items:end;margin-bottom:10px}
+  .toolbar label{font-size:12px;color:#475569;display:block;margin-bottom:4px}
+  .toolbar input,.toolbar select,.toolbar button{width:100%;padding:8px 10px;border:1px solid #e2e8f0;border-radius:10px;background:#fff}
+  .toolbar button{cursor:pointer;font-weight:700;border:none;background:#2563eb;color:#fff}
+  .toolbar button:disabled{opacity:.6;cursor:not-allowed}
+  .layout{display:grid;grid-template-columns:1fr 420px;gap:12px;align-items:start}
+  .card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:10px;box-shadow:0 6px 18px rgba(0,0,0,.04)}
+  .card h3{margin:6px 0 10px;font-size:16px;font-weight:800;color:#0f172a}
+  .right-pane{position:sticky;top:12px}
+  .table-wrapper{width:100%;overflow:auto;border-radius:8px}
+  .rain-table{border-collapse:separate;border-spacing:0;width:100%;min-width:760px}
+  .rain-table th,.rain-table td{border-bottom:1px solid #eef2f6;padding:7px 8px;text-align:center;white-space:nowrap;font-size:13px}
+  .rain-table thead th{position:sticky;top:0;background:#f8fafc;z-index:1}
+  .rain-table tbody td.time,.rain-table tfoot td.time{text-align:left;font-weight:700;color:#0f172a;position:sticky;left:0;background:#fff}
+  .rain-table tbody tr:nth-child(odd) td{background:#fcfcfd}
+  .rain-table tfoot td{font-weight:900;color:#c1121f;background:#fff5f5}
+  .mm-black{color:#111827;font-weight:700}.mm-green{color:#16a34a;font-weight:800}.mm-purple{color:#7c3aed;font-weight:800}.mm-red{color:#dc2626;font-weight:900}
+  @media (max-width:1100px){.layout{grid-template-columns:1fr}.right-pane{position:static}}
+  </style>
+
+  <!-- XLSX reader -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body>
 <header>
-  <h1>LƯỢNG MƯA CÁC TRẠM TỰ ĐỘNG TRÊN ĐỊA BÀN TỈNH QUẢNG TRỊ</h1>
-  <h2>Phục vụ công tác phòng chống thiên tai</h2>
+  <h1 class="title">
+    <div class="l1">LƯỢNG MƯA CÁC TRẠM TỰ ĐỘNG TRÊN ĐỊA BÀN TỈNH QUẢNG TRỊ</div>
+    <div class="l2">Phục vụ công tác phòng chống thiên tai</div>
+  </h1>
 </header>
 
 <div class="shell">
-  <!-- Sidebar -->
+  <!-- ===== SIDEBAR ===== -->
   <aside class="card">
-    <h3>Chọn dữ liệu</h3>
-    <button id="btnAutoXlsx">Tải Excel tham số</button>
-    <input type="file" id="fileXlsx" accept=".xlsx" style="margin-top:8px"/>
-    <div id="xlsxStatus" style="font-size:13px;margin-top:6px;color:#64748b">Chưa tải file Excel.</div>
-
-    <hr/>
-
-    <label>Bắt đầu</label>
-    <input type="datetime-local" id="startDt">
-    <label>Kết thúc</label>
-    <input type="datetime-local" id="endDt">
-
-    <label style="margin-top:8px">Chu kỳ (phút)</label>
-    <input type="number" id="sophut" value="60">
-
-    <label style="margin-top:8px"><input type="checkbox" id="tinhtong" checked> Tính tổng theo ngày</label>
-
-    <hr/>
-    <button id="btnFetch">Lấy dữ liệu</button>
-    <button id="btnClear">Xóa</button>
-  </aside>
-
-  <!-- Main -->
-  <main>
-    <div class="card" style="margin-bottom:16px">
-      <div id="summary">Chưa có dữ liệu.</div>
+    <!-- Nguồn dữ liệu -->
+    <div class="section">
+      <h3 class="section-title">Nguồn dữ liệu <span class="tag">Excel + API</span></h3>
+      <div class="row">
+        <button id="btnAutoXlsx" class="btn">Tải tự động</button>
+        <input type="file" id="fileXlsx" accept=".xlsx" />
+      </div>
+      <div id="xlsxStatus" class="status">Chưa tải file Excel.</div>
+      <div class="status" style="color:var(--muted)">
+        Đặt <b>thamso_khaithac.xlsx</b> vào thư mục <b>public/</b> của dự án; giữ nguyên các cột:
+        <code>matram, tentram, matinh, Tab, sophut, tinhtong</code>.
+      </div>
+      <label class="full" style="margin-top:8px">Passcode (nếu API yêu cầu)</label>
+      <input id="passcode" type="text" placeholder="để trống nếu không cần">
     </div>
 
-    <div class="card" style="padding:12px">
-      <div class="scroll" style="overflow:auto;max-height:320px">
-        <table id="dataTable" class="rain-table">
-          <thead><tr id="thead"></tr></thead>
-          <tbody id="tbody"></tbody>
-          <tfoot><tr id="tfoot"></tr></tfoot>
-        </table>
+    <hr style="border:none;border-top:1px solid var(--grid); margin:10px 0">
+
+    <!-- Chọn trạm & thời gian -->
+    <div class="section">
+      <h3 class="section-title">Chọn trạm & thời gian</h3>
+      <label>Chọn các trạm (Giữ Ctrl/Shift để chọn nhiều)</label>
+      <select id="multiSelect" multiple size="10" style="height:240px"></select>
+      <div class="status" style="color:var(--muted)">Mặc định chọn 4 trạm đầu tiên. Chọn nhiều trạm: bảng sẽ có thanh kéo ngang.</div>
+
+      <div class="dt" style="margin-top:10px">
+        <div>
+          <label>Bắt đầu</label>
+          <input type="datetime-local" id="startDt">
+        </div>
+        <div>
+          <label>Kết thúc</label>
+          <input type="datetime-local" id="endDt">
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:10px">
+        <div>
+          <label>Chu kỳ (sophut)</label>
+          <input type="number" id="sophut" min="1" step="1" value="60">
+        </div>
+        <div>
+          <label>ten_table (mặc định lấy theo Excel)</label>
+          <input id="tenTable" placeholder="để trống để lấy theo Excel">
+        </div>
+      </div>
+
+      <label style="margin-top:8px"><input type="checkbox" id="tinhtong" checked> Tính tổng theo ngày (tinhtong=1)</label>
+    </div>
+
+    <!-- Thao tác -->
+    <div class="section">
+      <h3 class="section-title">Thao tác</h3>
+      <div class="row">
+        <button id="btnFetch" class="btn">Lấy dữ liệu</button>
+        <button id="btnClear" class="btn secondary">Xoá kết quả</button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ===== MAIN ===== -->
+  <main style="display:grid; gap:16px;">
+    <div class="card toolbar">
+      <div class="summary" id="summary">Chưa có dữ liệu. Hãy chọn trạm & thời gian rồi bấm “Lấy dữ liệu”.</div>
+      <div class="toolbar-actions">
+        <button id="btnExport" class="btn ghost" disabled>Tải CSV</button>
+        <button id="btnExportXlsx" class="btn ghost" disabled>Tải Excel (.xlsx)</button>
       </div>
     </div>
 
-    <div id="chartBox" class="card" style="margin-top:16px;min-height:360px;text-align:center;display:flex;align-items:center;justify-content:center;color:#64748b">
-      Chưa có dữ liệu để vẽ đồ thị.
+    <!-- KẾT QUẢ: bảng trái + đồ thị phải -->
+    <div class="card" style="padding:12px">
+      <div class="results-grid">
+        <div class="scroll" id="tableBox" style="padding:0">
+          <table id="dataTable" class="rain-table">
+            <thead><tr id="thead"></tr></thead>
+            <tbody id="tbody"></tbody>
+            <tfoot id="tfoot"></tfoot>
+          </table>
+        </div>
+
+        <!-- Chart box -->
+        <div id="chartBox" class="card" style="min-height:360px">
+          <div style="font-size:12px;color:#64748b">
+            Chưa có dữ liệu để vẽ đồ thị.
+          </div>
+        </div>
+      </div>
     </div>
   </main>
 </div>
 
 <script>
+/* ===== CONFIG (Netlify Proxy) ===== */
+const API_PROXY = "/.netlify/functions/proxy";
+const DEFAULT_XLSX_PATH = "/thamso_khaithac.xlsx";
+const EXCEL_SHEET = "KhaibaoQuangtri";
+
+/* ===== UTIL ===== */
 const $ = s => document.querySelector(s);
 const pad = n => String(n).padStart(2,"0");
+const toLocalDatetimeValue = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 const quote = s => `'${s}'`;
+function buildProxyUrl(p){ return `${API_PROXY}?` + new URLSearchParams(p).toString(); }
 
+/* CSV/XLSX Export */
+function toCSV(rows){
+  if(!rows?.length) return "";
+  const cols = Object.keys(rows[0]);
+  const esc = v => `"${String(v??"").replace(/"/g,'""')}"`;
+  const head = cols.map(esc).join(",");
+  const body = rows.map(r => cols.map(c => esc(r[c])).join(",")).join("\n");
+  return head+"\n"+body;
+}
+function downloadCSV(rows){
+  const csv = toCSV(rows);
+  const bom = '\uFEFF';
+  const blob = new Blob([bom, csv], {type: 'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'rain_ketqua.csv';
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}
+function downloadXLSX(rows){
+  if (!rows?.length) return;
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.json_to_sheet(rows);
+  XLSX.utils.book_append_sheet(wb, ws, 'DuLieu');
+  XLSX.writeFile(wb, 'rain_ketqua.xlsx');
+}
+
+/* Fetch JSON (fallback AllOrigins nếu CORS lỗi) */
+async function fetchJSON(url){
+  async function doFetch(u){
+    const res = await fetch(u, { credentials:'include' });
+    const text = await res.text();
+    if (!res.ok) throw new Error(text || `HTTP ${res.status}`);
+    try { return JSON.parse(text); }
+    catch(e){ throw new Error(text.slice(0,180)); }
+  }
+  try { return await doFetch(url); }
+  catch(e){
+    const proxy = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url);
+    return await doFetch(proxy);
+  }
+}
+
+/* ===== READ EXCEL (STATIONS) ===== */
+let stations=[];
+function normalizeRow(r){
+  const pick=(a,b)=> (a!==undefined && a!=='')?a:b;
+  return {
+    matram:String(pick(r.matram,r.MATRAM)||'').trim(),
+    tentram:String(pick(r.tentram,r.TENTRAM)||'').trim(),
+    matinh:pick(r.matinh,r.MATINH)||'',
+    Tab:String(pick(r.Tab,r.tab)||'').trim(),
+    sophut:Number(pick(r.sophut,r.SOPHUT)||60)||60,
+    tinhtong:Number(pick(r.tinhtong,r.TINHTONG)||0)||0
+  };
+}
+function loadFromWorkbook(wb){
+  const ws = wb.Sheets[EXCEL_SHEET] || wb.Sheets[wb.SheetNames[0]];
+  const arr = XLSX.utils.sheet_to_json(ws,{defval:''});
+  stations = arr.map(normalizeRow).filter(r=>r.matram);
+  if (!stations.length) throw new Error('Không đọc được danh sách trạm từ Excel.');
+  $('#xlsxStatus').className='status ok';
+  $('#xlsxStatus').textContent=`Đã nạp ${stations.length} trạm.`;
+  fillStationSelects();
+}
+async function tryAutoLoadExcel(){
+  $('#xlsxStatus').textContent='Đang tải thamso_khaithac.xlsx…';
+  const res = await fetch(DEFAULT_XLSX_PATH);
+  if (!res.ok) throw new Error('Không thấy /thamso_khaithac.xlsx (đặt file vào thư mục public/)');
+  const ab = await res.arrayBuffer();
+  const wb = XLSX.read(ab,{type:'array'});
+  loadFromWorkbook(wb);
+}
+
+/* ===== UI ===== */
+function fillStationSelects(){
+  const box=$('#multiSelect'); box.innerHTML='';
+  stations.forEach((r,i)=>{
+    const o=document.createElement('option');
+    o.value=i; o.textContent=(r.tentram||'(không tên)').trim();
+    box.appendChild(o);
+  });
+  for(let i=0;i<Math.min(4,stations.length);i++){ box.options[i].selected=true; }
+}
+
+/* ====== MÀU THEO NGƯỠNG + HÀNG TỔNG ====== */
 function mmClass(val){
-  const v = Number(val);
+  const v = Number(String(val ?? "").toString().replace(",", "."));
   if (!isFinite(v)) return "";
   if (v < 10) return "mm-black";
   if (v <= 25) return "mm-green";
@@ -99,96 +355,336 @@ function renderTable(rows){
   thead.innerHTML=''; tbody.innerHTML=''; tfoot.innerHTML='';
 
   if(!Array.isArray(rows)||!rows.length){
-    $('#summary').textContent='Không có dữ liệu.';
+    thead.innerHTML='<th>(trống)</th>';
+    $('#summary').textContent='Không có dữ liệu để hiển thị.';
+    $('#btnExport').disabled=true; $('#btnExportXlsx').disabled=true;
+    renderChart([]);  // dọn chart
     return;
   }
 
+  // Xác định cột thời gian và SẮP XẾP lại cột
   const cols = Object.keys(rows[0]);
-  const timeCol = cols[0];
-  const stationCols = cols.slice(1);
+  const timeCol =
+    cols.find(c => c.toLowerCase().includes('thoi') && c.toLowerCase().includes('gian')) ||
+    cols.find(c => /time|date|ngay/i.test(c)) ||
+    cols[0];
 
-  thead.innerHTML = cols.map(c=>`<th>${c}</th>`).join('');
-  const totals = Object.fromEntries(stationCols.map(c=>[c,0]));
+  const stationCols = cols.filter(c => c !== timeCol);
+  const orderedCols = [timeCol, ...stationCols];
 
-  for(const r of rows){
-    const tr=document.createElement('tr');
-    tr.innerHTML = `<td>${r[timeCol]}</td>` +
-      stationCols.map(c=>{
-        const v=Number(r[c]??0); if(isFinite(v)) totals[c]+=v;
-        return `<td class="${mmClass(v)}">${isFinite(v)?v.toFixed(1):''}</td>`;
-      }).join('');
-    tbody.appendChild(tr);
+  // Header theo đúng thứ tự
+  thead.innerHTML = orderedCols.map(c => `<th>${c}</th>`).join('');
+
+  // Body + tính tổng (chỉ cho các cột trạm)
+  const totals = Object.fromEntries(stationCols.map(c => [c, 0]));
+  const frag = document.createDocumentFragment();
+
+  for (const r of rows) {
+    const tr = document.createElement('tr');
+
+    // Cột thời gian trước
+    const tdTime = document.createElement('td');
+    tdTime.textContent = r[timeCol] ?? '';
+    tr.appendChild(tdTime);
+
+    // Các cột trạm
+    for (const c of stationCols) {
+      const raw = r[c];
+      const num = Number(String(raw ?? '').toString().replace(',', '.'));
+      if (isFinite(num)) totals[c] += num;
+
+      const td = document.createElement('td');
+      td.textContent = (raw==='' || raw==null) ? '' : (isFinite(num) ? num.toFixed(1) : raw);
+      td.className = mmClass(num);
+      tr.appendChild(td);
+    }
+
+    frag.appendChild(tr);
   }
+  tbody.appendChild(frag);
 
-  const trow=document.createElement('tr');
-  trow.innerHTML=`<td><b>Tổng (mm)</b></td>`+
-    stationCols.map(c=>`<td style="font-weight:900;color:#c1121f">${totals[c].toFixed(1)}</td>`).join('');
+  // HÀNG TỔNG (mm) đúng vị trí dưới từng cột trạm
+  const trow = document.createElement('tr');
+  const first = document.createElement('td');
+  first.className = 'time';
+  first.innerHTML = '<b>Tổng (mm)</b>';
+  trow.appendChild(first);
+
+  for (const c of stationCols) {
+    const td = document.createElement('td');
+    td.style.fontWeight = '900';
+    td.style.color = '#c1121f';
+    td.textContent = totals[c] ? totals[c].toFixed(1) : '0.0';
+    trow.appendChild(td);
+  }
   tfoot.appendChild(trow);
 
-  $('#summary').textContent=`Có ${rows.length} mốc thời gian — ${stationCols.length} trạm.`;
-  renderChart(totals);
+  // Trạng thái + export + chart
+  $('#summary').textContent = `Hiển thị ${rows.length} mốc thời gian — ${stationCols.length} trạm.`;
+  $('#btnExport').disabled = false;
+  $('#btnExportXlsx').disabled = false;
+  window.__lastRows = rows;
+
+  // VẼ BIỂU ĐỒ CỘT theo TỔNG từng trạm
+  renderChart(rows);
 }
 
-/* ==== Biểu đồ cột ==== */
-function renderChart(totals){
-  const host=$('#chartBox'); host.innerHTML='';
-  const keys=Object.keys(totals); if(!keys.length){host.textContent="Chưa có dữ liệu.";return;}
+/* ===== PIVOT BY TIME ===== */
+function pickField(row, keys){ for(const k of keys){ if(row[k]!==undefined && row[k]!==null && row[k]!=='' ) return row[k]; } }
+const TIME_KEYS=['thoigian','Thoigian','thoigian_SL','Thoigian_SL','ThoiGian','ThoiGian_SL','time','datetime','date','Ngay','NgayGio','ngaygio'];
+const VALUE_KEYS=['solieu','SoLieu','Solieu','GiaTri','giatri','mucnuoc','MucNuoc','value','LuongMua','luongmua','Mua'];
+const normTime=t=> (t==null?'':String(t).trim().replace('T',' '));
 
-  const W=host.clientWidth||800, H=360, m={l:50,r:20,t:20,b:50};
-  const vals=Object.values(totals);
-  const maxY=Math.max(...vals,10);
+/* ===== DATE LIMITS ===== */
+function pad2(n){return String(n).padStart(2,'0')}
+function toLocalDT(d){return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`}
+function fiveDaysAgoMidnight(){ const n=new Date(); n.setDate(n.getDate()-5); n.setHours(0,0,0,0); return n; }
+function setDateLimits(){
+  const now=new Date();
+  const startEl = $('#startDt');
+  const endEl   = $('#endDt');
 
-  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
-  svg.setAttribute('width','100%'); svg.setAttribute('height',H);
-  svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
-  host.appendChild(svg);
+  const minStart = fiveDaysAgoMidnight();
+  startEl.min = toLocalDT(minStart);
+  startEl.max = toLocalDT(now);
 
-  const barW=(W-m.l-m.r)/keys.length*0.6;
-  keys.forEach((k,i)=>{
-    const v=totals[k];
-    const x=m.l+i*((W-m.l-m.r)/keys.length)+((W-m.l-m.r)/keys.length-barW)/2;
-    const h=(v/maxY)*(H-m.t-m.b);
-    const y=H-m.b-h;
+  if (!startEl.value || new Date(startEl.value) < minStart) startEl.value = toLocalDT(minStart);
+  if (new Date(startEl.value) > now) startEl.value = toLocalDT(now);
 
-    const rect=document.createElementNS(svg.namespaceURI,'rect');
-    rect.setAttribute('x',x); rect.setAttribute('y',y);
-    rect.setAttribute('width',barW); rect.setAttribute('height',h);
-    rect.setAttribute('fill','#3b82f6');
-    svg.appendChild(rect);
+  endEl.min = startEl.value;
+  endEl.max = toLocalDT(now);
 
-    const txt=document.createElementNS(svg.namespaceURI,'text');
-    txt.setAttribute('x',x+barW/2); txt.setAttribute('y',y-4);
-    txt.setAttribute('text-anchor','middle');
-    txt.setAttribute('font-size','11'); txt.setAttribute('fill','#111827');
-    txt.textContent=v.toFixed(1);
-    svg.appendChild(txt);
+  if (!endEl.value || new Date(endEl.value) < new Date(startEl.value)) endEl.value = toLocalDT(now);
+  if (new Date(endEl.value) > now) endEl.value = toLocalDT(now);
+}
 
-    const lbl=document.createElementNS(svg.namespaceURI,'text');
-    lbl.setAttribute('x',x+barW/2); lbl.setAttribute('y',H-6);
-    lbl.setAttribute('text-anchor','middle');
-    lbl.setAttribute('font-size','11'); lbl.setAttribute('fill','#334155');
-    lbl.textContent=k;
-    svg.appendChild(lbl);
+/* ===== ĐỒ THỊ CỘT: Tổng lượng mưa theo trạm ===== */
+function renderChart(rows){
+  const host = $('#chartBox');
+  host.innerHTML = '';
+
+  // Không có dữ liệu
+  if (!Array.isArray(rows) || !rows.length){
+    const div=document.createElement('div');
+    div.style.cssText='font-size:12px;color:#64748b';
+    div.textContent='Chưa có dữ liệu để vẽ đồ thị.';
+    host.appendChild(div);
+    return;
+  }
+
+  // Xác định cột thời gian & cột trạm
+  const cols = Object.keys(rows[0]);
+  const timeCol =
+    cols.find(c => c.toLowerCase().includes('thoi') && c.toLowerCase().includes('gian')) ||
+    cols.find(c => /time|date|ngay/i.test(c)) ||
+    cols[0];
+  const stationCols = cols.filter(c => c !== timeCol);
+  if (!stationCols.length){
+    const div=document.createElement('div');
+    div.style.cssText='font-size:12px;color:#64748b';
+    div.textContent='Không tìm thấy cột trạm để tính tổng.';
+    host.appendChild(div);
+    return;
+  }
+
+  // Tính tổng theo từng trạm
+  const totals = stationCols.map(name=>{
+    let sum = 0;
+    for (const r of rows){
+      const v = Number(String(r[name] ?? '').toString().replace(',','.'));
+      if (isFinite(v)) sum += v;
+    }
+    return { name, total: Number(sum.toFixed(1)) };
   });
 
-  // Trục Y
-  const yTicks=5;
-  for(let i=0;i<=yTicks;i++){
-    const val=i*maxY/yTicks;
-    const y=H-m.b-(val/maxY)*(H-m.t-m.b);
-    const line=document.createElementNS(svg.namespaceURI,'line');
-    line.setAttribute('x1',m.l); line.setAttribute('x2',W-m.r);
-    line.setAttribute('y1',y); line.setAttribute('y2',y);
-    line.setAttribute('stroke','#e5e7eb');
+  // (tuỳ chọn) sắp xếp giảm dần
+  // totals.sort((a,b)=>b.total - a.total);
+
+  const title = document.createElement('div');
+  title.style.cssText='font-size:12px;color:#64748b;margin-bottom:8px';
+  title.textContent='Đồ thị tổng lượng mưa theo trạm (mm).';
+  host.appendChild(title);
+
+  const W = host.clientWidth || 800;
+  const H = 360;
+  const m = { l:50, r:16, t:12, b:90 };
+  const innerW = W - m.l - m.r;
+  const innerH = H - m.t - m.b;
+
+  const maxY = Math.max(1, ...totals.map(t => t.total));
+  const y = v => m.t + innerH - (v / maxY) * innerH;
+
+  const n = totals.length;
+  const slot = innerW / n;
+  const barW = Math.max(18, Math.min(52, slot * 0.7));
+  const x = i => m.l + i*slot + (slot - barW)/2;
+
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('width','100%');
+  svg.setAttribute('height', H);
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  host.appendChild(svg);
+
+  // Lưới + ticks Y
+  const ticks = 5;
+  for (let i=0;i<=ticks;i++){
+    const v = (maxY / ticks) * i;
+    const yy = y(v);
+    const line = document.createElementNS(svg.namespaceURI,'line');
+    line.setAttribute('x1', m.l);
+    line.setAttribute('y1', yy);
+    line.setAttribute('x2', W - m.r);
+    line.setAttribute('y2', yy);
+    line.setAttribute('stroke', '#e2e8f0');
+    line.setAttribute('stroke-dasharray', '3 3');
     svg.appendChild(line);
 
-    const t=document.createElementNS(svg.namespaceURI,'text');
-    t.setAttribute('x',m.l-6); t.setAttribute('y',y+4);
-    t.setAttribute('text-anchor','end'); t.setAttribute('font-size','11'); t.setAttribute('fill','#334155');
-    t.textContent=val.toFixed(0);
+    const t = document.createElementNS(svg.namespaceURI,'text');
+    t.setAttribute('x', m.l - 6);
+    t.setAttribute('y', yy + 4);
+    t.setAttribute('text-anchor','end');
+    t.setAttribute('font-size','11');
+    t.setAttribute('fill','#334155');
+    t.textContent = v.toFixed(1);
     svg.appendChild(t);
   }
+
+  // Cột + nhãn
+  totals.forEach((d, i) => {
+    const xx = x(i);
+    const yy = y(d.total);
+    const h  = (m.t + innerH) - yy;
+
+    const rect = document.createElementNS(svg.namespaceURI,'rect');
+    rect.setAttribute('x', xx);
+    rect.setAttribute('y', yy);
+    rect.setAttribute('width', barW);
+    rect.setAttribute('height', Math.max(0, h));
+    rect.setAttribute('rx', 4);
+    rect.setAttribute('fill', '#2563eb');
+    svg.appendChild(rect);
+
+    const label = document.createElementNS(svg.namespaceURI,'text');
+    label.setAttribute('x', xx + barW/2);
+    label.setAttribute('y', yy - 6);
+    label.setAttribute('text-anchor','middle');
+    label.setAttribute('font-size','11');
+    label.setAttribute('font-weight','700');
+    label.setAttribute('fill','#0f172a');
+    label.textContent = d.total.toFixed(1);
+    svg.appendChild(label);
+
+    // Nhãn tên trạm (xoay -55°)
+    const baseY = m.t + innerH + 48;
+    const tx = document.createElementNS(svg.namespaceURI,'text');
+    tx.setAttribute('x', xx + barW/2);
+    tx.setAttribute('y', baseY);
+    tx.setAttribute('text-anchor','end');
+    tx.setAttribute('font-size','11');
+    tx.setAttribute('fill','#334155');
+    tx.setAttribute('transform', `rotate(-55 ${xx + barW/2} ${baseY})`);
+    tx.textContent = d.name;
+    svg.appendChild(tx);
+  });
+
+  // Trục X (đáy)
+  const axis = document.createElementNS(svg.namespaceURI,'line');
+  axis.setAttribute('x1', m.l);
+  axis.setAttribute('y1', m.t + innerH);
+  axis.setAttribute('x2', W - m.r);
+  axis.setAttribute('y2', m.t + innerH);
+  axis.setAttribute('stroke', '#cbd5e1');
+  svg.appendChild(axis);
 }
+
+/* ===== MAIN FLOW ===== */
+async function init(){
+  // mặc định: start = 00:00 của 2 ngày trước; end = now
+  const now=new Date(), s0=new Date(now); s0.setDate(now.getDate()-2); s0.setHours(0,0,0,0);
+  $('#startDt').value=toLocalDT(s0);
+  $('#endDt').value=toLocalDT(now);
+  setDateLimits();
+  $('#startDt').addEventListener('change', setDateLimits);
+  $('#endDt').addEventListener('change', setDateLimits);
+
+  $('#btnAutoXlsx').addEventListener('click', async ()=>{
+    try{ await tryAutoLoadExcel(); }catch(e){ $('#xlsxStatus').className='status err'; $('#xlsxStatus').textContent=e.message; }
+  });
+  $('#fileXlsx').addEventListener('change', async ev=>{
+    const f=ev.target.files?.[0]; if(!f) return;
+    try{ const ab=await f.arrayBuffer(); const wb=XLSX.read(ab,{type:'array'}); loadFromWorkbook(wb); }
+    catch(e){ $('#xlsxStatus').className='status err'; $('#xlsxStatus').textContent=e.message; }
+  });
+
+  $('#btnFetch').addEventListener('click', async ()=>{
+    if(!stations.length){ alert('Chưa nạp danh sách trạm từ Excel.'); return; }
+    const pass=$('#passcode').value.trim();
+    let s=new Date($('#startDt').value), e=new Date($('#endDt').value);
+    if(!(s.getTime()<e.getTime())){ alert('Khoảng thời gian không hợp lệ.'); return; }
+
+    const indices=Array.from($('#multiSelect').selectedOptions).map(o=>Number(o.value));
+    if(!indices.length){ alert('Hãy chọn ít nhất 1 trạm.'); return; }
+
+    const tinhtong=$('#tinhtong').checked?1:0;
+    if(tinhtong===1){ s.setHours(0,0,0,0); e.setHours(23,59,0,0);
+      $('#startDt').value=toLocalDT(s); $('#endDt').value=toLocalDT(e);
+    }
+    const fmt=(dt)=>`${dt.getFullYear()}-${pad(dt.getMonth()+1)}-${pad(dt.getDate())} ${pad(dt.getHours())}:${pad(dt.getMinutes())}:00`;
+    const sStr=fmt(s), eStr=fmt(e);
+
+    const datasets={};
+    $('#summary').textContent='Đang lấy dữ liệu…';
+    await Promise.all(indices.map(async idx=>{
+      const r=stations[idx];
+      const ten_table=($('#tenTable').value.trim()||r.Tab||'mucnuoc_oday'); // tuỳ Excel
+      const sophut=Number($('#sophut').value||r.sophut||60)||60;
+      const params={ matram:r.matram, ten_table, sophut:String(sophut), tinhtong:String(tinhtong),
+                     thoigianbd:quote(sStr), thoigiankt:quote(eStr) };
+      if(pass) params.passcode=pass;
+      const url=buildProxyUrl(params);
+      try{
+        const data=await fetchJSON(url);
+        datasets[r.tentram||r.matram]=Array.isArray(data)?data:[];
+      }catch(e){
+        console.warn('Fetch lỗi', r.matram, e);
+        datasets[r.tentram||r.matram]=[];
+      }
+    }));
+
+    // pivot theo thời gian
+    const timeIndex=new Map();
+    const names=Object.keys(datasets);
+    for(const n of names){
+      for(const row of (datasets[n]||[])){
+        const t=normTime(pickField(row, TIME_KEYS));
+        const v=pickField(row, VALUE_KEYS);
+        if(!t) continue;
+        if(!timeIndex.has(t)) timeIndex.set(t, {"thoi gian": t});
+        timeIndex.get(t)[n]=v;
+      }
+    }
+    const rows=Array.from(timeIndex.values())
+      .sort((a,b)=>String(a['thoi gian']).localeCompare(String(b['thoi gian'])));
+    renderTable(rows);
+  });
+
+  $('#btnClear').addEventListener('click', ()=>{
+    $('#thead').innerHTML=''; $('#tbody').innerHTML='';
+    $('#tfoot').innerHTML='';
+    $('#summary').textContent='Đã xoá kết quả.';
+    $('#btnExport').disabled=true; $('#btnExportXlsx').disabled=true;
+    renderChart([]);
+  });
+
+  // Export
+  $('#btnExport').addEventListener('click', ()=> downloadCSV(window.__lastRows||[]));
+  $('#btnExportXlsx').addEventListener('click', ()=> downloadXLSX(window.__lastRows||[]));
+
+  try{ await tryAutoLoadExcel(); }
+  catch(e){ $('#xlsxStatus').className='status'; $('#xlsxStatus').textContent='Không tìm thấy file mặc định. Hãy chọn file .xlsx thủ công.'; }
+}
+window.addEventListener('DOMContentLoaded', init);
 </script>
+
 </body>
 </html>

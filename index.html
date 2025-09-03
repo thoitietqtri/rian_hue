@@ -362,53 +362,55 @@ function renderTable(rows){
     return;
   }
 
-  // Xác định cột thời gian
+  // Xác định cột thời gian và SẮP XẾP lại cột
   const cols = Object.keys(rows[0]);
   const timeCol =
     cols.find(c => c.toLowerCase().includes('thoi') && c.toLowerCase().includes('gian')) ||
     cols.find(c => /time|date|ngay/i.test(c)) ||
     cols[0];
 
-  // Header
-  thead.innerHTML = cols.map(c=>`<th>${c}</th>`).join('');
+  const stationCols = cols.filter(c => c !== timeCol);
+  const orderedCols = [timeCol, ...stationCols];
 
-  // Body + tính tổng
-  const totals = Object.fromEntries(cols.map(c=>[c,0]));
+  // Header theo đúng thứ tự
+  thead.innerHTML = orderedCols.map(c => `<th>${c}</th>`).join('');
+
+  // Body + tính tổng (chỉ cho các cột trạm)
+  const totals = Object.fromEntries(stationCols.map(c => [c, 0]));
   const frag = document.createDocumentFragment();
 
-  for(const r of rows){
+  for (const r of rows) {
     const tr = document.createElement('tr');
 
-    // cột thời gian để đầu
+    // Cột thời gian trước
     const tdTime = document.createElement('td');
     tdTime.textContent = r[timeCol] ?? '';
     tr.appendChild(tdTime);
 
-    for(const c of cols){
-      if(c === timeCol) continue;
+    // Các cột trạm
+    for (const c of stationCols) {
       const raw = r[c];
       const num = Number(String(raw ?? '').toString().replace(',', '.'));
       if (isFinite(num)) totals[c] += num;
 
       const td = document.createElement('td');
-      td.textContent = (raw==='' || raw==null)
-        ? ''
-        : (isFinite(num) ? num.toFixed(1) : raw);
+      td.textContent = (raw==='' || raw==null) ? '' : (isFinite(num) ? num.toFixed(1) : raw);
       td.className = mmClass(num);
       tr.appendChild(td);
     }
+
     frag.appendChild(tr);
   }
   tbody.appendChild(frag);
 
-  // Hàng TỔNG (mm) đỏ đậm
+  // HÀNG TỔNG (mm) đúng vị trí dưới từng cột trạm
   const trow = document.createElement('tr');
   const first = document.createElement('td');
   first.className = 'time';
   first.innerHTML = '<b>Tổng (mm)</b>';
   trow.appendChild(first);
-  for(const c of cols){
-    if(c === timeCol) continue;
+
+  for (const c of stationCols) {
     const td = document.createElement('td');
     td.style.fontWeight = '900';
     td.style.color = '#c1121f';
@@ -417,9 +419,10 @@ function renderTable(rows){
   }
   tfoot.appendChild(trow);
 
-  // Trạng thái + bật export + vẽ chart
-  $('#summary').textContent = `Hiển thị ${rows.length} mốc thời gian — ${cols.length-1} trạm.`;
-  $('#btnExport').disabled=false; $('#btnExportXlsx').disabled=false;
+  // Trạng thái + export + chart
+  $('#summary').textContent = `Hiển thị ${rows.length} mốc thời gian — ${stationCols.length} trạm.`;
+  $('#btnExport').disabled = false;
+  $('#btnExportXlsx').disabled = false;
   window.__lastRows = rows;
   renderChart(rows);
 }

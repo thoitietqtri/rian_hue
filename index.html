@@ -4,6 +4,8 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>LƯỢNG MƯA CÁC TRẠM TỰ ĐỘNG TRÊN ĐỊA BÀN TỈNH QUẢNG TRỊ</title>
+
+  <!-- ====== Base UI ====== -->
   <style>
     :root{
       --bg:#f6f8ff; --card:#fff; --txt:#0f172a; --muted:#64748b; --pri:#1d4ed8;
@@ -106,9 +108,8 @@
       .results-grid{grid-template-columns:1fr}
     }
   </style>
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
-  <!-- Styles riêng cho app mưa (bảng + chart) -->
+  <!-- ====== Styles riêng cho app mưa (bảng + chart) ====== -->
   <style>
   body{margin:0;background:#f1f5f9;font-family:Inter,system-ui,Avenir,Helvetica,Arial,sans-serif}
   .container{max-width:1280px;margin:18px auto;padding:12px}
@@ -125,7 +126,7 @@
   .card h3{margin:6px 0 10px;font-size:16px;font-weight:800;color:#0f172a}
   .right-pane{position:sticky;top:12px}
   .table-wrapper{width:100%;overflow:auto;border-radius:8px}
-  .rain-table{border-collapse:collapse;width:100%;min-width:760px}
+  .rain-table{border-collapse:separate;border-spacing:0;width:100%;min-width:760px}
   .rain-table th,.rain-table td{border-bottom:1px solid #eef2f6;padding:7px 8px;text-align:center;white-space:nowrap;font-size:13px}
   .rain-table thead th{position:sticky;top:0;background:#f8fafc;z-index:1}
   .rain-table tbody td.time,.rain-table tfoot td.time{text-align:left;font-weight:700;color:#0f172a;position:sticky;left:0;background:#fff}
@@ -134,6 +135,9 @@
   .mm-black{color:#111827;font-weight:700}.mm-green{color:#16a34a;font-weight:800}.mm-purple{color:#7c3aed;font-weight:800}.mm-red{color:#dc2626;font-weight:900}
   @media (max-width:1100px){.layout{grid-template-columns:1fr}.right-pane{position:static}}
   </style>
+
+  <!-- XLSX reader -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body>
 <header>
@@ -220,9 +224,10 @@
     <div class="card" style="padding:12px">
       <div class="results-grid">
         <div class="scroll" id="tableBox" style="padding:0">
-          <table>
+          <table id="dataTable" class="rain-table">
             <thead><tr id="thead"></tr></thead>
             <tbody id="tbody"></tbody>
+            <tfoot><tr id="tfoot"></tr></tfoot>
           </table>
         </div>
 
@@ -334,8 +339,21 @@ function fillStationSelects(){
   });
   for(let i=0;i<Math.min(4,stations.length);i++){ box.options[i].selected=true; }
 }
+
+/* ====== MÀU THEO NGƯỠNG + HÀNG TỔNG ====== */
+function mmClass(val){
+  const v = Number(String(val ?? "").toString().replace(",", "."));
+  if (!isFinite(v)) return "";
+  if (v < 10) return "mm-black";
+  if (v <= 25) return "mm-green";
+  if (v <= 50) return "mm-purple";
+  return "mm-red";
+}
+
 function renderTable(rows){
-  const thead=$('#thead'), tbody=$('#tbody'); thead.innerHTML=''; tbody.innerHTML='';
+  const thead=$('#thead'), tbody=$('#tbody'), tfoot=$('#tfoot');
+  thead.innerHTML=''; tbody.innerHTML=''; tfoot.innerHTML='';
+
   if(!Array.isArray(rows)||!rows.length){
     thead.innerHTML='<th>(trống)</th>';
     $('#summary').textContent='Không có dữ liệu để hiển thị.';
@@ -343,20 +361,66 @@ function renderTable(rows){
     renderChart([]);  // dọn chart
     return;
   }
-  const cols=Object.keys(rows[0]);
-  thead.innerHTML=cols.map(c=>`<th>${c}</th>`).join('');
-  const frag=document.createDocumentFragment();
+
+  // Xác định cột thời gian
+  const cols = Object.keys(rows[0]);
+  const timeCol =
+    cols.find(c => c.toLowerCase().includes('thoi') && c.toLowerCase().includes('gian')) ||
+    cols.find(c => /time|date|ngay/i.test(c)) ||
+    cols[0];
+
+  // Header
+  thead.innerHTML = cols.map(c=>`<th>${c}</th>`).join('');
+
+  // Body + tính tổng
+  const totals = Object.fromEntries(cols.map(c=>[c,0]));
+  const frag = document.createDocumentFragment();
+
   for(const r of rows){
-    const tr=document.createElement('tr');
-    tr.innerHTML=cols.map(c=>`<td>${r[c]??''}</td>`).join('');
+    const tr = document.createElement('tr');
+
+    // cột thời gian để đầu
+    const tdTime = document.createElement('td');
+    tdTime.textContent = r[timeCol] ?? '';
+    tr.appendChild(tdTime);
+
+    for(const c of cols){
+      if(c === timeCol) continue;
+      const raw = r[c];
+      const num = Number(String(raw ?? '').toString().replace(',', '.'));
+      if (isFinite(num)) totals[c] += num;
+
+      const td = document.createElement('td');
+      td.textContent = (raw==='' || raw==null)
+        ? ''
+        : (isFinite(num) ? num.toFixed(1) : raw);
+      td.className = mmClass(num);
+      tr.appendChild(td);
+    }
     frag.appendChild(tr);
   }
   tbody.appendChild(frag);
+
+  // Hàng TỔNG (mm) đỏ đậm
+  const trow = document.createElement('tr');
+  const first = document.createElement('td');
+  first.className = 'time';
+  first.innerHTML = '<b>Tổng (mm)</b>';
+  trow.appendChild(first);
+  for(const c of cols){
+    if(c === timeCol) continue;
+    const td = document.createElement('td');
+    td.style.fontWeight = '900';
+    td.style.color = '#c1121f';
+    td.textContent = totals[c] ? totals[c].toFixed(1) : '0.0';
+    trow.appendChild(td);
+  }
+  tfoot.appendChild(trow);
+
+  // Trạng thái + bật export + vẽ chart
   $('#summary').textContent = `Hiển thị ${rows.length} mốc thời gian — ${cols.length-1} trạm.`;
   $('#btnExport').disabled=false; $('#btnExportXlsx').disabled=false;
   window.__lastRows = rows;
-
-  // VẼ ĐỒ THỊ từ chính rows đang hiển thị
   renderChart(rows);
 }
 
@@ -389,7 +453,7 @@ function setDateLimits(){
   if (new Date(endEl.value) > now) endEl.value = toLocalDT(now);
 }
 
-/* ===== CHART (SVG thuần, không còn BĐ1/BĐ2/BĐ3) ===== */
+/* ===== CHART (SVG thuần, không còn BĐ1/2/3) ===== */
 function parseTimeMaybe(s){
   if(s==null) return NaN;
   const t=String(s).trim(); if(!t) return NaN;
@@ -590,7 +654,7 @@ async function init(){
     $('#summary').textContent='Đang lấy dữ liệu…';
     await Promise.all(indices.map(async idx=>{
       const r=stations[idx];
-      const ten_table=($('#tenTable').value.trim()||r.Tab||'mucnuoc_oday');
+      const ten_table=($('#tenTable').value.trim()||r.Tab||'mucnuoc_oday'); // tuỳ Excel
       const sophut=Number($('#sophut').value||r.sophut||60)||60;
       const params={ matram:r.matram, ten_table, sophut:String(sophut), tinhtong:String(tinhtong),
                      thoigianbd:quote(sStr), thoigiankt:quote(eStr) };
@@ -624,6 +688,7 @@ async function init(){
 
   $('#btnClear').addEventListener('click', ()=>{
     $('#thead').innerHTML=''; $('#tbody').innerHTML='';
+    $('#tfoot').innerHTML='';
     $('#summary').textContent='Đã xoá kết quả.';
     $('#btnExport').disabled=true; $('#btnExportXlsx').disabled=true;
     renderChart([]);

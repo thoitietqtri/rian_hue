@@ -120,6 +120,32 @@
     }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+  <style>
+  body{margin:0;background:#f1f5f9;font-family:Inter,system-ui,Avenir,Helvetica,Arial,sans-serif}
+  .container{max-width:1280px;margin:18px auto;padding:12px}
+  .header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+  .header h2{margin:0;font-size:20px;font-weight:800;color:#0f172a}
+  .header .total{font-weight:900;color:#c1121f}
+  .toolbar{display:grid;grid-template-columns:200px 200px 220px 140px 1fr;gap:10px;align-items:end;margin-bottom:10px}
+  .toolbar label{font-size:12px;color:#475569;display:block;margin-bottom:4px}
+  .toolbar input,.toolbar select,.toolbar button{width:100%;padding:8px 10px;border:1px solid #e2e8f0;border-radius:10px;background:#fff}
+  .toolbar button{cursor:pointer;font-weight:700;border:none;background:#2563eb;color:#fff}
+  .toolbar button:disabled{opacity:.6;cursor:not-allowed}
+  .layout{display:grid;grid-template-columns:1fr 420px;gap:12px;align-items:start}
+  .card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:10px;box-shadow:0 6px 18px rgba(0,0,0,.04)}
+  .card h3{margin:6px 0 10px;font-size:16px;font-weight:800;color:#0f172a}
+  .right-pane{position:sticky;top:12px}
+  .table-wrapper{width:100%;overflow:auto;border-radius:8px}
+  .rain-table{border-collapse:collapse;width:100%;min-width:760px}
+  .rain-table th,.rain-table td{border-bottom:1px solid #eef2f6;padding:7px 8px;text-align:center;white-space:nowrap;font-size:13px}
+  .rain-table thead th{position:sticky;top:0;background:#f8fafc;z-index:1}
+  .rain-table tbody td.time,.rain-table tfoot td.time{text-align:left;font-weight:700;color:#0f172a;position:sticky;left:0;background:#fff}
+  .rain-table tbody tr:nth-child(odd) td{background:#fcfcfd}
+  .rain-table tfoot td{font-weight:900;color:#c1121f;background:#fff5f5}
+  .mm-black{color:#111827;font-weight:700}.mm-green{color:#16a34a;font-weight:800}.mm-purple{color:#7c3aed;font-weight:800}.mm-red{color:#dc2626;font-weight:900}
+  @media (max-width:1100px){.layout{grid-template-columns:1fr}.right-pane{position:static}}
+  </style>
 </head>
 <body>
 <header>

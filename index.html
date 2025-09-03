@@ -227,7 +227,8 @@
           <table id="dataTable" class="rain-table">
             <thead><tr id="thead"></tr></thead>
             <tbody id="tbody"></tbody>
-            <tfoot><tr id="tfoot"></tr></tfoot>
+            <!-- FIX: id đặt trên <tfoot>, không đặt trên <tr> -->
+            <tfoot id="tfoot"></tfoot>
           </table>
         </div>
 
@@ -456,7 +457,7 @@ function setDateLimits(){
   if (new Date(endEl.value) > now) endEl.value = toLocalDT(now);
 }
 
-/* ===== CHART (SVG thuần, không còn BĐ1/2/3) ===== */
+/* ===== CHART (SVG thuần) ===== */
 function parseTimeMaybe(s){
   if(s==null) return NaN;
   const t=String(s).trim(); if(!t) return NaN;

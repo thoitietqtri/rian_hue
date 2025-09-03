@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>THÔNG TIN MỰC NƯỚC CÁC TRẠM THỦY VĂN — QUẢNG TRỊ</title>
+  <title>LƯỢNG MƯA CÁC TRẠM TỰ ĐỘNG TRÊN ĐỊA BÀN TỈNH QUẢNG TRỊ</title>
   <style>
     :root{
       --bg:#f6f8ff; --card:#fff; --txt:#0f172a; --muted:#64748b; --pri:#1d4ed8;
@@ -100,19 +100,6 @@
       padding-right:36px; position:relative; z-index:31;
     }
 
-    /* ===== ALERT TABLE (STATIC) ===== */
-    .alert-box{border:2px solid #ef4444; border-radius:12px; padding:10px}
-    .alert-scroll{max-height:270px; overflow:auto; border:1px solid #fecaca; border-radius:10px; background:#fff}
-    .alert-table{width:100%; border-collapse:separate; border-spacing:0; font-size:12px}
-    .alert-table th,.alert-table td{
-      padding:6px 8px; text-align:center; vertical-align:middle;
-      border-right:1px solid #fecaca; border-bottom:1px solid #fecaca
-    }
-    .alert-table th:first-child,.alert-table td:first-child{border-left:1px solid #fecaca}
-    .alert-table thead th{position:sticky; top:0; background:#fff5f5; z-index:1}
-    .alert-table tbody td{color:#dc2626; font-weight:700}
-    .name-left{text-align:left}
-
     @media (max-width:1100px){
       .shell{grid-template-columns:1fr}
       .toolbar{top:calc(64px + 8px)}
@@ -121,6 +108,7 @@
   </style>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
+  <!-- Styles riêng cho app mưa (bảng + chart) -->
   <style>
   body{margin:0;background:#f1f5f9;font-family:Inter,system-ui,Avenir,Helvetica,Arial,sans-serif}
   .container{max-width:1280px;margin:18px auto;padding:12px}
@@ -150,7 +138,7 @@
 <body>
 <header>
   <h1 class="title">
-    <div class="l1">THÔNG TIN MỰC NƯỚC CÁC TRẠM THỦY VĂN TRÊN ĐỊA BÀN TỈNH QUẢNG TRỊ</div>
+    <div class="l1">LƯỢNG MƯA CÁC TRẠM TỰ ĐỘNG TRÊN ĐỊA BÀN TỈNH QUẢNG TRỊ</div>
     <div class="l2">Phục vụ công tác phòng chống thiên tai</div>
   </h1>
 </header>
@@ -216,42 +204,6 @@
         <button id="btnClear" class="btn secondary">Xoá kết quả</button>
       </div>
     </div>
-
-    <!-- Bảng báo động (cố định) -->
-    <div class="section alert-box">
-      <h3 class="section-title" style="margin-bottom:6px">Mực nước ứng với cấp báo động (m)</h3>
-      <div class="alert-scroll">
-        <table class="alert-table">
-          <thead>
-            <tr><th style="width:42px">TT</th><th>Tên sông</th><th>Tên trạm</th><th>I</th><th>II</th><th>III</th></tr>
-          </thead>
-          <tbody>
-            <tr><td>1</td><td class="name-left">Gianh</td><td class="name-left">Mai Hóa</td><td>3.0</td><td>5.0</td><td>6.5</td></tr>
-            <tr><td>2</td><td class="name-left">Gianh</td><td class="name-left">Đồng Tâm</td><td>7.0</td><td>13.0</td><td>16.0</td></tr>
-            <tr><td>3</td><td class="name-left">Gianh</td><td class="name-left">Tân Mỹ</td><td>1.1</td><td>1.3</td><td>1.5</td></tr>
-            <tr><td>4</td><td class="name-left">Kiến Giang</td><td class="name-left">Lệ Thủy</td><td>1.2</td><td>2.2</td><td>2.7</td></tr>
-            <tr><td>5</td><td class="name-left">Kiến Giang</td><td class="name-left">Kiến Giang</td><td>8.0</td><td>11.0</td><td>13.0</td></tr>
-            <tr><td>6</td><td class="name-left">Nhật Lệ</td><td class="name-left">Đồng Hới</td><td>1.0</td><td>1.5</td><td>2.0</td></tr>
-            <tr><td>7</td><td class="name-left">Hiếu</td><td class="name-left">Đông Hà</td><td>2.0</td><td>3.0</td><td>4.0</td></tr>
-            <tr><td>8</td><td class="name-left">Thạch Hãn</td><td class="name-left">Thạch Hãn</td><td>3.0</td><td>4.5</td><td>6.0</td></tr>
-            <tr><td>9</td><td class="name-left">Cửa Việt</td><td class="name-left">Cửa Việt</td><td>1.0</td><td>1.5</td><td>1.8</td></tr>
-            <tr><td>10</td><td class="name-left">Bến Hải</td><td class="name-left">Gia Vòng</td><td>5.0</td><td>8.0</td><td>11.0</td></tr>
-            <tr><td>11</td><td class="name-left">Bến Hải</td><td class="name-left">Hiền Lương</td><td>3.0</td><td>5.0</td><td>7.0</td></tr>
-            <tr><td>12</td><td class="name-left">Roon</td><td class="name-left">Quảng Phú</td><td>1.3</td><td>2.1</td><td>2.7</td></tr>
-            <tr><td>13</td><td class="name-left">Gianh</td><td class="name-left">Quảng Thanh</td><td>1.2</td><td>2.1</td><td>2.9</td></tr>
-            <tr><td>14</td><td class="name-left">Rào Nan</td><td class="name-left">Cao Quảng</td><td>28.5</td><td>31.0</td><td>33.0</td></tr>
-            <tr><td>15</td><td class="name-left">Son</td><td class="name-left">Phong Nha</td><td>3.5</td><td>5.0</td><td>6.5</td></tr>
-            <tr><td>16</td><td class="name-left">Lý Hòa</td><td class="name-left">Lý Hòa</td><td>1.1</td><td>2.0</td><td>2.5</td></tr>
-            <tr><td>17</td><td class="name-left">Nhật Lệ</td><td class="name-left">Hàm Ninh</td><td>1.2</td><td>2.0</td><td>3.0</td></tr>
-            <tr><td>18</td><td class="name-left">Đakrông</td><td class="name-left">Đakrông</td><td>29.5</td><td>31.5</td><td>33.5</td></tr>
-            <tr><td>19</td><td class="name-left">Hiếu</td><td class="name-left">Đầu Mầu</td><td>21.0</td><td>22.5</td><td>23.5</td></tr>
-            <tr><td>20</td><td class="name-left">SaLung</td><td class="name-left">Bến Quan</td><td>4.0</td><td>5.5</td><td>6.5</td></tr>
-            <tr><td>21</td><td class="name-left">Ô Lâu</td><td class="name-left">Mỹ Chánh</td><td>2.5</td><td>4.0</td><td>5.3</td></tr>
-            <tr><td>22</td><td class="name-left">Ô Lâu</td><td class="name-left">Hải Tân</td><td>1.8</td><td>2.8</td><td>3.4</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
   </aside>
 
   <!-- ===== MAIN ===== -->
@@ -313,7 +265,7 @@ function downloadCSV(rows){
   const blob = new Blob([bom, csv], {type: 'text/csv;charset=utf-8;'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url; a.download = 'mucnuoc_ketqua.csv';
+  a.href = url; a.download = 'rain_ketqua.csv';
   document.body.appendChild(a); a.click(); a.remove();
   URL.revokeObjectURL(url);
 }
@@ -322,7 +274,7 @@ function downloadXLSX(rows){
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.json_to_sheet(rows);
   XLSX.utils.book_append_sheet(wb, ws, 'DuLieu');
-  XLSX.writeFile(wb, 'mucnuoc_ketqua.xlsx');
+  XLSX.writeFile(wb, 'rain_ketqua.xlsx');
 }
 
 /* Fetch JSON (fallback AllOrigins nếu CORS lỗi) */
@@ -437,43 +389,7 @@ function setDateLimits(){
   if (new Date(endEl.value) > now) endEl.value = toLocalDT(now);
 }
 
-/* ===== CHART HELPERS: BD1/BD2/BD3 từ bảng cảnh báo ===== */
-function normName(s){
-  return (s??"").toString()
-    .normalize("NFD").replace(/\p{Diacritic}/gu,"")
-    .replace(/\s+/g," ").trim().toLowerCase();
-}
-function initBDLevels(){
-  const map = new Map();
-  const rows = document.querySelectorAll(".alert-table tbody tr");
-  rows.forEach(tr=>{
-    const tds = tr.querySelectorAll("td");
-    const tenTram = tds[2]?.textContent?.trim() ?? ""; // cột tên trạm
-    const bd1 = Number((tds[3]?.textContent ?? "").replace(",", "."));
-    const bd2 = Number((tds[4]?.textContent ?? "").replace(",", "."));
-    const bd3 = Number((tds[5]?.textContent ?? "").replace(",", "."));
-    if(tenTram){
-      map.set(normName(tenTram), {
-        name: tenTram,
-        bd1: Number.isFinite(bd1) ? bd1 : null,
-        bd2: Number.isFinite(bd2) ? bd2 : null,
-        bd3: Number.isFinite(bd3) ? bd3 : null
-      });
-    }
-  });
-  window.__BD_MAP = map;
-}
-function findBDFor(stationName){
-  const key = normName(stationName);
-  const map = window.__BD_MAP || new Map();
-  if(map.has(key)) return map.get(key);
-  for(const [k,v] of map.entries()){
-    if(k.includes(key) || key.includes(k)) return v; // khớp gần đúng
-  }
-  return null;
-}
-
-/* ===== CHART (SVG thuần, robust) ===== */
+/* ===== CHART (SVG thuần, không còn BĐ1/BĐ2/BĐ3) ===== */
 function parseTimeMaybe(s){
   if(s==null) return NaN;
   const t=String(s).trim(); if(!t) return NaN;
@@ -521,7 +437,7 @@ function renderChart(rows){
   host.innerHTML = '';
   const title = document.createElement('div');
   title.style.cssText='font-size:12px;color:#64748b;margin-bottom:8px';
-  title.textContent='Đồ thị quá trình mực nước — dữ liệu từ bảng đang hiển thị.';
+  title.textContent='Đồ thị quá trình lượng mưa — dữ liệu từ bảng đang hiển thị.';
   host.appendChild(title);
 
   const {series, xType, xValues, xLabels} = buildSeriesFromRows(rows);
@@ -576,43 +492,13 @@ function renderChart(rows){
       svg.appendChild(line);
     }
 
-    // Đường quá trình (màu xanh)
+    // Đường quá trình
     let d=`M ${sx(data[0].x)} ${sy(data[0].y)}`;
     for(let i=1;i<data.length;i++) d += ` L ${sx(data[i].x)} ${sy(data[i].y)}`;
     const path=document.createElementNS(svg.namespaceURI,'path');
     path.setAttribute('d', d); path.setAttribute('fill','none');
     path.setAttribute('stroke','#0ea5e9'); path.setAttribute('stroke-width','2');
     svg.appendChild(path);
-
-    // ===== VẼ BĐ1/BĐ2/BĐ3 (vàng/da cam/đỏ) nếu có =====
-    const lv = findBDFor(sel.name);
-    const COLORS = { bd1:'#eab308', bd2:'#f97316', bd3:'#ef4444' };
-    function drawHLine(val, color, label){
-      if(val==null || !Number.isFinite(val)) return;
-      const y = sy(val);
-      if (y < m.t-4 || y > H-m.b+4) return; // ngoài khung thì bỏ
-      const line=document.createElementNS(svg.namespaceURI,'line');
-      line.setAttribute('x1',m.l); line.setAttribute('y1',y);
-      line.setAttribute('x2',W-m.r); line.setAttribute('y2',y);
-      line.setAttribute('stroke',color); line.setAttribute('stroke-width','1.8');
-      line.setAttribute('stroke-dasharray','6 4');
-      svg.appendChild(line);
-
-      const tag=document.createElementNS(svg.namespaceURI,'text');
-      tag.setAttribute('x', W - m.r - 4);
-      tag.setAttribute('y', y - 4);
-      tag.setAttribute('text-anchor','end');
-      tag.setAttribute('font-size','11');
-      tag.setAttribute('font-weight','700');
-      tag.setAttribute('fill', color);
-      tag.textContent = `${label} (${val})`;
-      svg.appendChild(tag);
-    }
-    if(lv){
-      drawHLine(lv.bd1, COLORS.bd1, 'BĐ1');
-      drawHLine(lv.bd2, COLORS.bd2, 'BĐ2');
-      drawHLine(lv.bd3, COLORS.bd3, 'BĐ3');
-    }
 
     // Nhãn trục X
     function labelAt(xv){
@@ -746,9 +632,6 @@ async function init(){
   // Export
   $('#btnExport').addEventListener('click', ()=> downloadCSV(window.__lastRows||[]));
   $('#btnExportXlsx').addEventListener('click', ()=> downloadXLSX(window.__lastRows||[]));
-
-  // Khởi tạo map ngưỡng BĐ từ bảng cảnh báo
-  initBDLevels();
 
   try{ await tryAutoLoadExcel(); }
   catch(e){ $('#xlsxStatus').className='status'; $('#xlsxStatus').textContent='Không tìm thấy file mặc định. Hãy chọn file .xlsx thủ công.'; }
